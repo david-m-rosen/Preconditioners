@@ -10,5 +10,5 @@ fetch_googletest(
 # Enable GTest unit testing
 enable_testing()
 
-add_executable(SymILDL_test SymILDL_test.cpp)
-target_link_libraries(SymILDL_test SymILDLSupport gtest_main)
+add_executable(ILDLFactorizationTest ILDLFactorizationTest.cpp)
+target_link_libraries(ILDLFactorizationTest SymILDLSupport gtest_main)
