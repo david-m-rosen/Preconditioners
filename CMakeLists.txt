@@ -32,7 +32,7 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/bin CACHE PATH "The direc
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" CACHE STRING "The CMake module path used for this project")
 
 
-# PardisoSupport DEPENDENCIES
+# SymILDLSupport DEPENDENCIES
 
 # Find Eigen library
 find_package(Eigen3 REQUIRED)
@@ -46,7 +46,6 @@ find_package(BLAS REQUIRED)
 # Find LAPACK libraries
 find_package(LAPACK REQUIRED)
 
-
 if(${ENABLE_VECTORIZATION})
 message(STATUS "Enabling SIMD/AVX instruction sets")
 add_definitions(-march=native)
@@ -56,6 +55,9 @@ if(${ENABLE_PROFILING})
 message(STATUS "Enabling code profiling using Google Performance Tools")
 set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} -lprofiler)
 endif()
+
+# Set location of the include directory for the SYM-ILDL library
+set(SymILDL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SymILDL/SymILDL)
 
 
 # SET UP SymILDLSupport LIBRARY
@@ -69,12 +71,12 @@ set(SymILDLSupport_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SymILDLSupport/src)
 set(SymILDLSupport_HDRS
 ${SymILDLSupport_HDR_DIR}/SymILDLSupport_types.h
 ${SymILDLSupport_HDR_DIR}/SymILDLUtils.h
-#${SymILDLSupport_HDR_DIR}/ILDLFactorization.h
+${SymILDLSupport_HDR_DIR}/ILDLFactorization.h
 )
 
 set(SymILDLSupport_SRCS
 ${SymILDLSupport_SOURCE_DIR}/SymILDLUtils.cpp
-#${SymILDLSupport_SOURCE_DIR}/ILDLFactorization.cpp
+${SymILDLSupport_SOURCE_DIR}/ILDLFactorization.cpp
 )
 
 
@@ -84,7 +86,7 @@ set(SymILDLSupport_INCLUDES ${SymILDLSupport_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} 
 
 # Build the SYMILDLSupport library
 add_library(${PROJECT_NAME} SHARED ${SymILDLSupport_HDRS} ${SymILDLSupport_SRCS})
-target_include_directories(${PROJECT_NAME} PUBLIC ${SymILDLSupport_INCLUDES})
+target_include_directories(${PROJECT_NAME} PUBLIC ${SymILDL_INCLUDE_DIR} ${SymILDLSupport_INCLUDES})
 target_link_libraries(${PROJECT_NAME} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
 
 # Build unit tests
