@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "lilc_matrix.h" // SYM-ILDL matrix type
+
 #include "SymILDLSupport_types.h"
 
 namespace SymILDLSupport {
@@ -17,8 +19,18 @@ class ILDLFactorization {
 private:
   /// Data members
 
-  // Options structure for the Pardiso library
+  /** Structure containing options for the SYM-ILDL library */
   SymILDLOpts opts_;
+
+  /** Local copy of A; this matrix will be modified in-place as the
+   * factorization is performed */
+  lilc_matrix<Scalar> A_;
+
+  /** Block-diagonal matrix D */
+  block_diag_matrix<Scalar> D_;
+
+  /** Fill-reducing permutation */
+  lilc_matrix<Scalar>::idx_vector_type perm_;
 
   // Boolean value indicating whether the object contains a valid cached
   // factorization
@@ -51,9 +63,6 @@ public:
 
   /** Solve the linear system Ax = b, and return the solution x */
   Vector solve(const Vector &b) const;
-
-  /// Destructor
-  ~SymmetricFactorization();
 };
 
 } // namespace SymILDLSupport

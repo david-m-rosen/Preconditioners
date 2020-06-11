@@ -39,19 +39,25 @@ struct SymILDLOpts {
 
   /** Parameter controlling the maximum fill-in for the incomplete
    * lower-triangular factor L: each column of L is guanteed to have at most
-   * max_fill_factor*nnz(A) nonzero elements. */
+   * max_fill_factor * (nnz(A) / dim(A)) nonzero elements. */
   double max_fill_factor = 3.0;
 
   /** Drop tolerance for elements of the incomplete lower-triangular factor L:
-   * any elements l in the kth column of L |l| <= drop_tol * |L_k|_1, where L_k
-   * is the kth column, will be set to 0. */
+   * any elements l in L_k (the kth column of L) satisfying
+   * |l| <= drop_tol * |L_k|_1
+   * will be set to 0. */
   double drop_tol = 1e-3;
 
   /** This parameter controls the aggressiveness of the Bunch-Kaufman pivoting
-   * procedure.  When BK_pivot_tol >= 1, full Bunch-Kaufman pivoting is used;
-   * when BK_pivot_tol is 0, the pivoting procedure is faster, chooses poorer
-   * pivots. Values between 0 and 1 vary the aggressiveness of Bunch-Kaufman
-   * pivoting. */
+   * procedure.  When BK_pivot_tol = 1, full Bunch-Kaufman pivoting is used;
+   * if BK_pivot_tol = 0, partial pivoting is turned off, and the first non-zero
+   * pivot under the diagonal will be used.  Intermediate values continuously
+   * vary the aggressiveness of the pivoting: wither values closer to 0 favoring
+   * locality in pivoting (pivots closer do the diagonal are used), and values
+   * closer to 1 increasing the stability of the selected pivots.
+   *
+   * This parameter is useful for trading off preservation of the *structure* of
+   * the incomplete factor L vs. controlling the magnitudes of its elements */
   double BK_pivot_tol = 1.0;
 
   /** This parameter determines the type of pivoting strategy to use during
