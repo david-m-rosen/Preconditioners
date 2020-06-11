@@ -65,21 +65,21 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
   // SYM-ILDL expects compressed COLUMN storage arguments, here we take
   // advantage of the fact that the CSR representation of A's UPPER TRIANGLE
   // actually coincides with the CSC representation of A's LOWER TRIANGLE :-)
-  A_.load(row_ptr, col_idx, val);
+  L_.load(row_ptr, col_idx, val);
 
   /// Equilibrate A using a diagonal scaling matrix S, if requested.
   // This will overwrite A_ with SAS, and save the diagonal scaling matrix as
   // A_.S
   if (opts_.equilibration == Equilibration::Bunch)
-    A_.sym_equil();
+    L_.sym_equil();
 
   /// Compute fill-reducing reordering of A_, if requested
   switch (opts_.order) {
   case Ordering::AMD:
-    A_.sym_amd(perm_);
+    L_.sym_amd(perm_);
     break;
   case Ordering::RCM:
-    A_.sym_rcm(perm_);
+    L_.sym_rcm(perm_);
     break;
   case Ordering::None:
     // Set perm to be the identity permutation
@@ -91,14 +91,19 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
 
   // Apply this permutation to A_, if one was requested
   if (opts_.order != Ordering::None)
-    A_.sym_perm(perm_);
+    L_.sym_perm(perm_);
 
-  /// Compute in-place LDL factorization of A_ = P*S*A*S*P
-  A_.ildl_inplace(D_, perm_, opts_.max_fill_factor, opts_.drop_tol,
+  /// Compute in-place LDL factorization of P*S*A*S*P
+  L_.ildl_inplace(D_, perm_, opts_.max_fill_factor, opts_.drop_tol,
                   opts_.BK_pivot_tol,
                   (opts_.pivot_type == PivotType::Rook
                        ? lilc_matrix<Scalar>::pivot_type::ROOK
                        : lilc_matrix<Scalar>::pivot_type::BKP));
+
+  /// Preallocate working space for linear algebra operations
+
+  tmp_.resize(A.rows());
+  x_.resize(A.rows());
 
   // Record the fact that we now have a valid cached factorization
   initialized_ = true;
@@ -109,6 +114,37 @@ Vector ILDLFactorization::solve(const Vector &b) const {
   if (!initialized_)
     throw std::logic_error(
         "You must compute() a factorization before solving linear systems!");
+
+  // Recall that the factorization encodes PSASP ~ LDL'
+
+  // Get non-const references to working variables
+  std::vector<Scalar> &tmp = const_cast<std::vector<Scalar> &>(tmp_);
+  std::vector<Scalar> &x = const_cast<std::vector<Scalar> &>(x_);
+  lilc_matrix<Scalar> &L = const_cast<lilc_matrix<Scalar> &>(L_);
+  block_diag_matrix<Scalar> &D = const_cast<block_diag_matrix<Scalar> &>(D_);
+
+  /// STEP 1: Scale and permute right-hand side vector
+  for (int k = 0; k < b.size(); ++k)
+    tmp[k] = L.S[perm_[k]] * b(perm_[k]);
+
+  /// STEP 2:  SOLVE LDL'y = rhs
+
+  L.backsolve(tmp, x);
+
+  if (opts_.pos_def_mod) {
+    std::cout << "NOT YET IMPLEMENTED!!" << std::endl;
+  } else {
+    D.solve(x, tmp);
+  }
+
+  L.forwardsolve(tmp, x);
+
+  /// STEP 3:  Scale and permute solution
+  Vector X(b.size());
+  for (int k = 0; k < b.size(); ++k)
+    X(perm_[k]) = L.S[k] * x[k];
+
+  return X;
 }
 
 void ILDLFactorization::clear() {
@@ -116,11 +152,13 @@ void ILDLFactorization::clear() {
   // If we have a cached factorization ...
   if (initialized_) {
     // Release the memory associated with this factorization
-    A_.list.clear();
-    A_.row_first.clear();
-    A_.col_first.clear();
-    A_.S.main_diag.clear();
-    A_.S.off_diag.clear();
+    L_.list.clear();
+    L_.row_first.clear();
+    L_.col_first.clear();
+    L_.S.main_diag.clear();
+    L_.S.off_diag.clear();
+    tmp_.clear();
+    x_.clear();
   }
 
   // Record the fact that we no longer have a valid cached factorization
