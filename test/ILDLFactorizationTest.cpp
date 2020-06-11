@@ -1,6 +1,9 @@
 #include "SymILDLSupport/ILDLFactorization.h"
 #include "SymILDLSupport/SymILDLUtils.h"
 
+#include <Eigen/Eigenvalues>
+#include <complex>
+
 #include "gtest/gtest.h"
 
 using namespace SymILDLSupport;
@@ -111,4 +114,38 @@ TEST_F(ILDLFactorizationTest, ExactFactorization) {
   Eigen::MatrixXd Ainv_gt = Eigen::MatrixXd(A).inverse();
 
   EXPECT_LT((Ainv_gt - Ainv).norm(), rel_tol * Ainv_gt.norm());
+}
+
+TEST_F(ILDLFactorizationTest, PositiveDefiniteFactorization) {
+
+  // Setting max-fill to a be huge and drop tol = 0 results in an exact LDL
+  // factorization
+  opts.max_fill_factor = 1e3;
+  opts.drop_tol = 0;
+
+  // Modify the block-diagonal matrix D to ensure that LDL is
+  // positive-definitite
+  opts.pos_def_mod = true;
+
+  // Set factorization options
+  Afact.setOptions(opts);
+
+  // Compute factorization
+  Afact.compute(A);
+
+  Eigen::MatrixXd Adense = Eigen::MatrixXd(A);
+  Eigen::MatrixXd PA(A.rows(), A.rows());
+
+  // Compute the preconditioned matrix PA by solving PA = Afact^-1 * A
+  // column-by-column
+  for (int k = 0; k < A.rows(); ++k)
+    PA.col(k) = Afact.solve(Adense.col(k));
+
+  // Compute eigenvalues of PA: these should be +/- 1
+  Eigen::EigenSolver<Eigen::MatrixXd> eigs(PA);
+
+  /// Ensure that each eigenvalue is either +/- 1
+  for (int k = 0; k < PA.rows(); ++k)
+    EXPECT_TRUE((abs(eigs.eigenvalues()(k) - 1.0) < rel_tol) ||
+                (abs(eigs.eigenvalues()(k) + 1.0) < rel_tol));
 }

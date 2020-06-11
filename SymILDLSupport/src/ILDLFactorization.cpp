@@ -131,11 +131,10 @@ Vector ILDLFactorization::solve(const Vector &b) const {
 
   L.backsolve(tmp, x);
 
-  if (opts_.pos_def_mod) {
-    std::cout << "NOT YET IMPLEMENTED!!" << std::endl;
-  } else {
+  if (opts_.pos_def_mod)
+    D.pos_def_solve(x, tmp);
+  else
     D.solve(x, tmp);
-  }
 
   L.forwardsolve(tmp, x);
 
