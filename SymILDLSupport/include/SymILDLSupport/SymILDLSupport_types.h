@@ -9,14 +9,13 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
-namespace SymILDL {
+namespace SymILDLSupport {
 
 /// Some useful typedefs for the SymILDL library
 
 /// Linear algebra types
 typedef double Scalar;
 typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 
 /** We use row-major storage order to take advantage of fast (sparse-matrix)
  * (dense-vector) multiplications when OpenMP is available (cf. the Eigen
@@ -68,4 +67,4 @@ struct SymILDLOpts {
   Equilibration equilibration = Equilibration::Bunch;
 };
 
-} // namespace SymILDL
+} // namespace SymILDLSupport

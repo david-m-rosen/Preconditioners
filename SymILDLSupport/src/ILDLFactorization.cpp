@@ -1,11 +1,9 @@
-#include "PardisoSupport/SymmetricFactorization.h"
-#include "PardisoSupport/PardisoUtils.h"
+#include
 
 #include <exception>
 #include <iostream>
-#include <limits>
 
-namespace PardisoSupport {
+namespace SymILDLSupport {
 
 /// Constructors
 
@@ -278,4 +276,4 @@ SymmetricFactorization::~SymmetricFactorization() {
   clear();
 }
 
-} // namespace PardisoSupport
+} // namespace SymILDLSupport

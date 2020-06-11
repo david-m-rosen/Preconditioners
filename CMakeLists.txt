@@ -58,34 +58,33 @@ set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} -lprofiler)
 endif()
 
 
-# SET UP PARDISOSUPPORT LIBRARY
+# SET UP SymILDLSupport LIBRARY
 
 # Set the various directories for this project
 set(SymILDLSupport_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SymILDLSupport/include)
-set(SymILDLSupport_HDR_DIR ${SYMILDLSupport_INCLUDE_DIR}/SymILDLSupport)
+set(SymILDLSupport_HDR_DIR ${SymILDLSupport_INCLUDE_DIR}/SymILDLSupport)
 set(SymILDLSupport_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SymILDLSupport/src)
 
 # Get the set of SymILDLSupport header and source files
 set(SymILDLSupport_HDRS
 ${SymILDLSupport_HDR_DIR}/SymILDLSupport_types.h
 ${SymILDLSupport_HDR_DIR}/SymILDLUtils.h
-${SymILDLSupport_HDR_DIR}/ILDLFactorization.h
+#${SymILDLSupport_HDR_DIR}/ILDLFactorization.h
 )
 
 set(SymILDLSupport_SRCS
 ${SymILDLSupport_SOURCE_DIR}/SymILDLUtils.cpp
-${SymILDLSupport_SOURCE_DIR}/ILDLFactorization.cpp
+#${SymILDLSupport_SOURCE_DIR}/ILDLFactorization.cpp
 )
 
 
 # The SYMILDLSupport headers and Eigen 3 are all referenced by the header files of the SYMILDLSupport library, hence must be PUBLICLY included (i.e. clients using the SYMILDLSupport headers must also include these headers)
-set(SymILDLSupport_INCLUDES ${SYMILDLSupport_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} CACHE INTERNAL "")
+set(SymILDLSupport_INCLUDES ${SymILDLSupport_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} CACHE INTERNAL "")
 
 
 # Build the SYMILDLSupport library
-add_library(${PROJECT_NAME} SHARED ${SYMILDLSupport_HDRS} ${SYMILDLSupport_SRCS})
-target_include_directories(${PROJECT_NAME} PUBLIC ${PardisoSupport_INCLUDES})
-set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
+add_library(${PROJECT_NAME} SHARED ${SymILDLSupport_HDRS} ${SymILDLSupport_SRCS})
+target_include_directories(${PROJECT_NAME} PUBLIC ${SymILDLSupport_INCLUDES})
 target_link_libraries(${PROJECT_NAME} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
 
 # Build unit tests
