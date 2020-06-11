@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.1)
 
 # PROJECT CONFIGURATION
-project(SYMILDLSupport LANGUAGES C CXX VERSION 1.0.0)
+project(SymILDLSupport LANGUAGES C CXX VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON) # We require C++ 14
 
@@ -19,7 +19,7 @@ else()
 endif()
 
 # Build the unit tests?
-set(BUILD_SYMILDLSupport_TESTS OFF CACHE BOOL "Build unit tests? [disabled by default]")
+set(BUILD_SymILDLSupport_TESTS OFF CACHE BOOL "Build unit tests? [disabled by default]")
 # Enable faster instruction sets (SIMD/AVX)?
 set(ENABLE_VECTORIZATION OFF CACHE BOOL "Enable vectorized instruction sets (SIMD/AVX)? [disabled by default]")
 # Enable code profiling using gperftools
@@ -61,25 +61,25 @@ endif()
 # SET UP PARDISOSUPPORT LIBRARY
 
 # Set the various directories for this project
-set(SYMILDLSupport_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SYMILDLSupport/include)
-set(SYMILDLSupport_HDR_DIR ${SYMILDLSupport_INCLUDE_DIR}/SYMILDLSupport)
-set(SYMILDLSupport_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SYMILDLSupport/src)
+set(SymILDLSupport_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SymILDLSupport/include)
+set(SymILDLSupport_HDR_DIR ${SYMILDLSupport_INCLUDE_DIR}/SymILDLSupport)
+set(SymILDLSupport_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SymILDLSupport/src)
 
-# Get the set of PardisoSupport header and source files
-set(PardisoSupport_HDRS
-${SYMILDLSupport_HDR_DIR}/SYMILDLSupport_types.h
-${PardisoSupport_HDR_DIR}/SYMILDLUtils.h
-${PardisoSupport_HDR_DIR}/ILDLFactorization.h
+# Get the set of SymILDLSupport header and source files
+set(SymILDLSupport_HDRS
+${SymILDLSupport_HDR_DIR}/SymILDLSupport_types.h
+${SymILDLSupport_HDR_DIR}/SymILDLUtils.h
+${SymILDLSupport_HDR_DIR}/ILDLFactorization.h
 )
 
-set(SYMILDLSupport_SRCS
-${SYMILDLSupport_SOURCE_DIR}/SYMILDLUtils.cpp
-${SYMILDLSupport_SOURCE_DIR}/ILDLFactorization.cpp
+set(SymILDLSupport_SRCS
+${SymILDLSupport_SOURCE_DIR}/SymILDLUtils.cpp
+${SymILDLSupport_SOURCE_DIR}/ILDLFactorization.cpp
 )
 
 
 # The SYMILDLSupport headers and Eigen 3 are all referenced by the header files of the SYMILDLSupport library, hence must be PUBLICLY included (i.e. clients using the SYMILDLSupport headers must also include these headers)
-set(SYMILDLSupport_INCLUDES ${SYMILDLSupport_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} CACHE INTERNAL "")
+set(SymILDLSupport_INCLUDES ${SYMILDLSupport_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} CACHE INTERNAL "")
 
 
 # Build the SYMILDLSupport library
@@ -89,12 +89,12 @@ set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAG
 target_link_libraries(${PROJECT_NAME} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
 
 # Build unit tests
-if(${BUILD_SYMILDLSupport_TESTS})
+if(${BUILD_SymILDLSupport_TESTS})
 message(STATUS "Adding unit tests to build")
 add_subdirectory(test)
 endif()
 
-# EXPORT SYMILDLSupport LIBRARY
+# EXPORT SymILDLSupport LIBRARY
 
 # Add add entry for this project into CMake's package registry, so that this project can be found by other CMake projects
 export(PACKAGE ${PROJECT_NAME})
