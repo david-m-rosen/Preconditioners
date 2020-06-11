@@ -115,7 +115,7 @@ Vector ILDLFactorization::solve(const Vector &b) const {
     throw std::logic_error(
         "You must compute() a factorization before solving linear systems!");
 
-  // Recall that the factorization encodes PSASP ~ LDL'
+  // Recall that since P'SASP ~ LDL', then A^-1 ~ S P L^{-T} D^-1 L^-1 P^T S
 
   // Get non-const references to working variables
   std::vector<Scalar> &tmp = const_cast<std::vector<Scalar> &>(tmp_);
@@ -142,7 +142,7 @@ Vector ILDLFactorization::solve(const Vector &b) const {
   /// STEP 3:  Scale and permute solution
   Vector X(b.size());
   for (int k = 0; k < b.size(); ++k)
-    X(perm_[k]) = L.S[k] * x[k];
+    X(perm_[k]) = L.S[perm_[k]] * x[k];
 
   return X;
 }

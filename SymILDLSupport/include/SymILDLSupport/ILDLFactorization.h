@@ -70,6 +70,18 @@ struct SymILDLOpts {
   bool pos_def_mod = false;
 };
 
+/** This lightweight class computes an incomplete LDL^T factorization of the
+ * form:
+ *
+ * P'SASP ~ LDL'
+ *
+ * where:
+ *
+ * - S is an [optional] diagonal scaling matrix used to equilibrate A
+ * - P is an [optional] fill-reducing row and column permutation for A
+ * - L is a lower-triangular factor
+ * - D is a block-diagonal matrix with blocks of size <= 2
+ */
 class ILDLFactorization {
 private:
   /// Data members
@@ -121,8 +133,19 @@ public:
    * ILDLFactorization object */
   void clear();
 
-  /** Solve the linear system Ax = b, and return the solution x */
+  /** Approximate the solution of Ax = b using the incomplete factorization */
   Vector solve(const Vector &b) const;
+
+  /// Accessors
+
+  /** Return fill-reducing permutation ordering used in the factorization */
+  const std::vector<int> &permutation() const { return perm_; }
+
+  /** Return the number of nonzeros in the lower-triangular factor */
+  int L_nnz() const { return L_.nnz_count; }
+
+  /** Return number of nonzeros in the block-diagonal factor D */
+  int D_nnz() const { return D_.nnz_count; }
 };
 
 } // namespace SymILDLSupport
