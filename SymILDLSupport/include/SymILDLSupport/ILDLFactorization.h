@@ -1,6 +1,17 @@
 /** This class provides functionality for computing an incomplete LDL^T
  * factorization of a symmetric indefinite matrix using the SYM-ILDL library.
  *
+ * Specifically, we compute an incomplete factorization of the form:
+ *
+ *   P'SASP ~ LDL'
+ *
+ * where:
+ *
+ * - P is a permutation of the rows and columns of A
+ * - S is a diagonal scaling matrix used to equilibrate A
+ * - L is a unit lower-triangular matrix
+ * - D is a block-diagonal matrix comprised of 1x1 and 2x2 blocks
+ *
  * The interface it provides is based upon the ones used by the Eigen library's
  * built-in matrix factorization types.
  *
@@ -75,10 +86,10 @@ struct SymILDLOpts {
  *
  * where:
  *
+ * - P is a permutation of the rows and columns of A
  * - S is an [optional] diagonal scaling matrix used to equilibrate A
- * - P is an [optional] fill-reducing row and column permutation for A
- * - L is a lower-triangular factor
- * - D is a block-diagonal matrix with blocks of size <= 2
+ * - L is a unit lower-triangular matrix
+ * - D is a block-diagonal matrix comprised of 1x1 and 2x2 blocks
  */
 class ILDLFactorization {
 private:
@@ -94,6 +105,9 @@ private:
 
   /** Permutation P */
   PermutationVector P_;
+
+  /** Inverse permutation Pinv */
+  PermutationVector Pinv_;
 
   /** Diagonal scaling matrix S */
   Vector S_;
@@ -164,7 +178,15 @@ public:
    * matrix is modified to ensure that it is positive-definite */
   SparseMatrix D(bool pos_def_mod = false) const;
 
-  /** Compute the matrix-vector product D*x.  If pos_def_mod is 'true'; the
+  /** Return the total number of blocks in the block-diagonal matrix D */
+  size_t num_blocks() const { return block_sizes_.size(); }
+
+  /** Return the number of 2x2 blocks in the block-diagonal matrix D */
+  size_t num_2x2_blocks() const { return Q_.size(); }
+
+  /// Linear-algebraic operations
+
+  /** Compute the matrix-vector product D*x.  If pos_def_mod is 'true', the
    * product is computed with a positive-definite modification with D*/
   Vector Dproduct(const Vector &x, bool pos_def_mod = false) const;
 
@@ -172,16 +194,27 @@ public:
    * solved with D replaced by its positive-definite modification */
   Vector Dsolve(const Vector &b, bool pos_def_mode = false) const;
 
-  /** Solve the linear system (D+)^{1/2} * x = b, where D+ is the
-   * positive-definite modification of the block-diagonal matrix D, and M^(1/2)
-   * denotes the symmetric square root of the positive-definite matrix M. */
+  /** Solve the linear system (D+)^{1/2} * x = b, where (D+)^{1/2} is the
+   * symmetric square-root of the positive-definite modification of the
+   * block-diagonal matrix D. */
   Vector sqrtDsolve(const Vector &b) const;
 
-  /** Return the total number of blocks in the block-diagonal matrix D */
-  size_t num_blocks() const { return block_sizes_.size(); }
+  /** Solve the linear system LDL'x = b. If pos_def_mod is 'true', the
+   * system is solved using a positive-definite modification of D */
+  Vector LDLTsolve(const Vector &b, bool pos_def_mode = false) const;
 
-  /** Return the number of 2x2 blocks in the block-diagonal matrix D */
-  size_t num_2x2_blocks() const { return Q_.size(); }
+  /** Solve the linear system (D+)^{1/2}L' * x = b, where (D+)^{1/2} is the
+   * symmetric square-root of the positive-definite modification of the
+   * block-diagonal matrix D.  If transpose = true, this function instead solves
+   * the linear system L D^{1/2} x = b (corresponding to transposing the
+   * coefficient matrix). */
+  Vector sqrtDLTsolve(const Vector &b, bool transpose = false) const;
+
+  /** Compute an approximate solution of Ax = b using the incomplete LDLT
+   * factorization.  If pos_def_mod is 'true', the block-diagonal matrix D is
+   * modified to ensure that the corresponding modification of A is
+   * positive-definite */
+  Vector solve(const Vector &b, bool pos_def_mod = false) const;
 };
 
 } // namespace SymILDLSupport

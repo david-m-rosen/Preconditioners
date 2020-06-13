@@ -116,10 +116,13 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
                       ? lilc_matrix<Scalar>::pivot_type::ROOK
                       : lilc_matrix<Scalar>::pivot_type::BKP));
 
-  /// Record the final permutation in P
+  /// Record the final permutation in P and Pinv
   P_.resize(dim_);
-  for (int k = 0; k < dim_; ++k)
+  Pinv_.resize(dim_);
+  for (int k = 0; k < dim_; ++k) {
     P_(k) = perm[k];
+    Pinv_[P_(k)] = k;
+  }
 
   /// Construct lower-triangular Eigen matrix L_ from L
   std::vector<Eigen::Triplet<Scalar>> triplets;
@@ -376,6 +379,33 @@ Vector ILDLFactorization::sqrtDsolve(const Vector &b) const {
   }
 
   return x;
+}
+
+Vector ILDLFactorization::LDLTsolve(const Vector &b, bool pos_def_mode) const {
+  /// Error checking
+  if (!initialized_)
+    throw std::invalid_argument("Factorization has not yet been computed");
+
+  if (b.size() != dim_)
+    throw std::invalid_argument("Argument b has incorrect dimension");
+
+  return L_.transpose().triangularView<Eigen::UnitUpper>().solve(
+      Dsolve(L_.triangularView<Eigen::UnitLower>().solve(b), pos_def_mode));
+}
+
+Vector ILDLFactorization::sqrtDLTsolve(const Vector &b, bool transpose) const {
+  if (!transpose)
+    return L_.transpose().triangularView<Eigen::UnitUpper>().solve(
+        sqrtDsolve(b));
+  else
+    return sqrtDsolve(L_.triangularView<Eigen::UnitLower>().solve(b));
+}
+
+Vector ILDLFactorization::solve(const Vector &b, bool pos_def_mod) const {
+  /// If P'SASP ~ LDL', then A^-1 ~ SP (LDL')^-1 P'S
+  return S_.cwiseProduct(
+      P_.asPermutation() *
+      LDLTsolve(Pinv_.asPermutation() * S_.cwiseProduct(b), pos_def_mod));
 }
 
 } // namespace SymILDLSupport

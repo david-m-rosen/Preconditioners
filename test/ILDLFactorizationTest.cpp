@@ -311,3 +311,64 @@ TEST_F(ILDLFactorizationTest, sqrtDsolve) {
   Vector y = Afact.sqrtDsolve(xtest);
   EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
 }
+
+/// Test solving linear systems of the form LDL' x = b
+TEST_F(ILDLFactorizationTest, LDLTsolve) {
+
+  // Set factorization options
+  Afact.setOptions(opts);
+
+  // Compute factorization
+  Afact.compute(A);
+
+  // Extract diagonal matrix D
+  Matrix D = Afact.D();
+  Matrix Dpos = Afact.D(true);
+
+  Matrix LDLt = Afact.L() * D * Afact.L().transpose();
+  Matrix LDposLt = Afact.L() * Dpos * Afact.L().transpose();
+
+  /// Compute ground-truth solution
+  Vector ygt = LDLt.inverse() * xtest;
+
+  Vector y = Afact.LDLTsolve(xtest);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+
+  /// Compute ground-truth solution for positive-definite modification
+  ygt = LDposLt.inverse() * xtest;
+
+  y = Afact.LDLTsolve(xtest, true);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+}
+
+/// Test solving linear systems of the form (D+)^{1/2} L' x = b
+TEST_F(ILDLFactorizationTest, sqrtDLTsolve) {
+
+  // Set factorization options
+  Afact.setOptions(opts);
+
+  // Compute factorization
+  Afact.compute(A);
+
+  // Extract diagonal matrix Dpos
+  Matrix Dpos = Afact.D(true);
+
+  // Compute symmetric square square root of D
+  Eigen::SelfAdjointEigenSolver<Matrix> eig(Dpos);
+  Matrix sqrtD = eig.eigenvectors() *
+                 eig.eigenvalues().cwiseSqrt().asDiagonal() *
+                 eig.eigenvectors().transpose();
+
+  Matrix sqrtDLt = sqrtD * Afact.L().transpose();
+  Matrix sqrtDLt_inv = sqrtDLt.inverse();
+
+  /// Compute ground-truth solution for (D+)^{1/2} L' x = b
+  Vector ygt = sqrtDLt_inv * xtest;
+  Vector y = Afact.sqrtDLTsolve(xtest);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+
+  /// Compute ground-truth solution for L(D+)^{1/2} x = b
+  ygt = sqrtDLt_inv.transpose() * xtest;
+  y = Afact.sqrtDLTsolve(xtest, true);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+}
