@@ -164,6 +164,19 @@ public:
    * matrix is modified to ensure that it is positive-definite */
   SparseMatrix D(bool pos_def_mod = false) const;
 
+  /** Compute the matrix-vector product D*x.  If pos_def_mod is 'true'; the
+   * product is computed with a positive-definite modification with D*/
+  Vector Dproduct(const Vector &x, bool pos_def_mod = false) const;
+
+  /** Solve the linear system Dx = b.  If pos_def_mod is 'true', the system is
+   * solved with D replaced by its positive-definite modification */
+  Vector Dsolve(const Vector &b, bool pos_def_mode = false) const;
+
+  /** Solve the linear system (D+)^{1/2} * x = b, where D+ is the
+   * positive-definite modification of the block-diagonal matrix D, and M^(1/2)
+   * denotes the symmetric square root of the positive-definite matrix M. */
+  Vector sqrtDsolve(const Vector &b) const;
+
   /** Return the total number of blocks in the block-diagonal matrix D */
   size_t num_blocks() const { return block_sizes_.size(); }
 
