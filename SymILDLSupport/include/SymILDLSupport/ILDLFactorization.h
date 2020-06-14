@@ -91,14 +91,17 @@ private:
 
   /// FACTORIZATION ELEMENTS: Elements of the factorization of PSASP = LDL'
 
+  /** Fill-reducing permutation P */
+  lilc_matrix<Scalar>::idx_vector_type perm_;
+
+  /** Scaling matrix S_ */
+  block_diag_matrix<Scalar> S_;
+
   /** Lower-triangular factor */
   lilc_matrix<Scalar> L_;
 
   /** Block-diagonal matrix D */
   block_diag_matrix<Scalar> D_;
-
-  /** Fill-reducing permutation P */
-  lilc_matrix<Scalar>::idx_vector_type perm_;
 
   /** Working space for linear algebra operations */
   std::vector<Scalar> tmp_;

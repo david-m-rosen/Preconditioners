@@ -33,11 +33,8 @@ protected:
     ///
     /// A = 1  2  0  3
     ///       -5  0  0
-    ///           2  0
+    ///           0  4
     ///              7
-    ///
-    ///
-    ///
 
     SparseMatrix AUT(4, 4);
     AUT.resize(4, 4);
@@ -48,7 +45,7 @@ protected:
 
     AUT.insert(1, 1) = -5;
 
-    AUT.insert(2, 2) = 2;
+    AUT.insert(2, 3) = 4;
 
     AUT.insert(3, 3) = 7;
 
@@ -56,6 +53,16 @@ protected:
 
     // Randomly sample test vector x
     xtest = Vector::Random(A.rows());
+
+    /// Set factorization configurations
+    // Setting max-fill to a be huge and drop tol = 0 results in an exact LDL
+    // factorization
+    opts.equilibration = Equilibration::Bunch;
+    opts.order = Ordering::AMD;
+    opts.pivot_type = PivotType::BunchKaufman;
+    opts.max_fill_factor = 1e3;
+    opts.BK_pivot_tol = 0;
+    opts.drop_tol = 0;
   }
 };
 
@@ -78,25 +85,19 @@ TEST_F(ILDLFactorizationTest, toCSR) {
   }
 
   // Check col_idx
-  std::vector<int> col_idx_true = {0, 1, 3, 1, 2, 3};
+  std::vector<int> col_idx_true = {0, 1, 3, 1, 3, 3};
   for (size_t i = 0; i < col_idx_true.size(); ++i) {
     EXPECT_EQ(col_idx_true[i], col_idx[i]);
   }
 
   // Check val
-  std::vector<double> val_true = {1, 2, 3, -5, 2, 7};
+  std::vector<double> val_true = {1, 2, 3, -5, 4, 7};
   for (size_t i = 0; i < val_true.size(); ++i) {
     EXPECT_FLOAT_EQ(val_true[i], val[i]);
   }
 }
 
 TEST_F(ILDLFactorizationTest, ExactFactorization) {
-
-  // Setting max-fill to a be huge and drop tol = 0 results in an exact LDL
-  // factorization
-  opts.max_fill_factor = 1e3;
-  opts.drop_tol = 0;
-  opts.pos_def_mod = false;
 
   // Set factorization options
   Afact.setOptions(opts);

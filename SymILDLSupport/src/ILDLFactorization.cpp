@@ -65,21 +65,28 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
   // SYM-ILDL expects compressed COLUMN storage arguments, here we take
   // advantage of the fact that the CSR representation of A's UPPER TRIANGLE
   // actually coincides with the CSC representation of A's LOWER TRIANGLE :-)
-  L_.load(row_ptr, col_idx, val);
+  lilc_matrix<double> Alilc;
+
+  Alilc.load(row_ptr, col_idx, val);
 
   /// Equilibrate A using a diagonal scaling matrix S, if requested.
-  // This will overwrite A_ with SAS, and save the diagonal scaling matrix as
-  // A_.S
+  // This will overwrite Alilc with SAS, and save the diagonal scaling matrix as
+  // Alilc.S
   if (opts_.equilibration == Equilibration::Bunch)
-    L_.sym_equil();
+    Alilc.sym_equil();
 
-  /// Compute fill-reducing reordering of A_, if requested
+  // Store the (diagonal) scaling matrix S
+  S_.main_diag.resize(A.rows());
+  for (int k = 0; k < S_.main_diag.size(); ++k)
+    S_.main_diag[k] = Alilc.S.main_diag[k];
+
+  /// Compute fill-reducing reordering of A, if requested
   switch (opts_.order) {
   case Ordering::AMD:
-    L_.sym_amd(perm_);
+    Alilc.sym_amd(perm_);
     break;
   case Ordering::RCM:
-    L_.sym_rcm(perm_);
+    Alilc.sym_rcm(perm_);
     break;
   case Ordering::None:
     // Set perm to be the identity permutation
@@ -91,14 +98,14 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
 
   // Apply this permutation to A_, if one was requested
   if (opts_.order != Ordering::None)
-    L_.sym_perm(perm_);
+    Alilc.sym_perm(perm_);
 
-  /// Compute in-place LDL factorization of P*S*A*S*P
-  L_.ildl_inplace(D_, perm_, opts_.max_fill_factor, opts_.drop_tol,
-                  opts_.BK_pivot_tol,
-                  (opts_.pivot_type == PivotType::Rook
-                       ? lilc_matrix<Scalar>::pivot_type::ROOK
-                       : lilc_matrix<Scalar>::pivot_type::BKP));
+  /// Compute incomplete LDL factorization of P*S*A*S*P
+  Alilc.ildl(L_, D_, perm_, opts_.max_fill_factor, opts_.drop_tol,
+             opts_.BK_pivot_tol,
+             (opts_.pivot_type == PivotType::Rook
+                  ? lilc_matrix<Scalar>::pivot_type::ROOK
+                  : lilc_matrix<Scalar>::pivot_type::BKP));
 
   /// Preallocate working space for linear algebra operations
 
@@ -121,11 +128,12 @@ Vector ILDLFactorization::solve(const Vector &b) const {
   std::vector<Scalar> &tmp = const_cast<std::vector<Scalar> &>(tmp_);
   std::vector<Scalar> &x = const_cast<std::vector<Scalar> &>(x_);
   lilc_matrix<Scalar> &L = const_cast<lilc_matrix<Scalar> &>(L_);
+  block_diag_matrix<Scalar> &S = const_cast<block_diag_matrix<Scalar> &>(S_);
   block_diag_matrix<Scalar> &D = const_cast<block_diag_matrix<Scalar> &>(D_);
 
   /// STEP 1: Scale and permute right-hand side vector
   for (int k = 0; k < b.size(); ++k)
-    tmp[k] = L.S[perm_[k]] * b(perm_[k]);
+    tmp[k] = S[perm_[k]] * b(perm_[k]);
 
   /// STEP 2:  SOLVE LDL'y = rhs
 
@@ -141,7 +149,7 @@ Vector ILDLFactorization::solve(const Vector &b) const {
   /// STEP 3:  Scale and permute solution
   Vector X(b.size());
   for (int k = 0; k < b.size(); ++k)
-    X(perm_[k]) = L.S[perm_[k]] * x[k];
+    X(perm_[k]) = S[perm_[k]] * x[k];
 
   return X;
 }
@@ -154,8 +162,8 @@ void ILDLFactorization::clear() {
     L_.list.clear();
     L_.row_first.clear();
     L_.col_first.clear();
-    L_.S.main_diag.clear();
-    L_.S.off_diag.clear();
+    S_.main_diag.clear();
+    S_.off_diag.clear();
     tmp_.clear();
     x_.clear();
   }
