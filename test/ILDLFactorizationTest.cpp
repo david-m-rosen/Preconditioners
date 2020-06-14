@@ -122,6 +122,9 @@ TEST_F(ILDLFactorizationTest, ExactFactorizationElements) {
   // Load in initial matrix
   solver.load(row_ptr, col_idx, val);
 
+  // Save initial matrix A
+  solver.A.save("A.txt", true);
+
   // Set reordering scheme
   switch (opts.order) {
   case Ordering::AMD:
@@ -199,7 +202,15 @@ TEST_F(ILDLFactorizationTest, ExactFactorizationElements) {
     }
 
   /// Save the matrices constructed by the SYM-ILDL solver
-  solver.L.save("L.txt");
+
+  std::ofstream perm_file("P.txt");
+  for (const auto &i : solver.perm)
+    perm_file << i << " ";
+  perm_file << std::endl;
+  perm_file.close();
+
+  solver.A.S.save("S.txt");
+  solver.A.save("L.txt", true);
   solver.D.save("D.txt");
 }
 
@@ -372,3 +383,21 @@ TEST_F(ILDLFactorizationTest, sqrtDLTsolve) {
   y = Afact.sqrtDLTsolve(xtest, true);
   EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
 }
+
+/// Test approximate solution of Ax = b using incomplete factorization
+// TEST_F(ILDLFactorizationTest, solve) {
+
+//  // Set factorization options
+//  Afact.setOptions(opts);
+
+//  // Compute factorization
+//  Afact.compute(A);
+
+//  // Direct solve using A^-1
+//  Vector ygt = A.toDense().inverse() * xtest;
+
+//  // Solve using factorization
+//  Vector y = Afact.solve(xtest);
+
+//  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+//}
