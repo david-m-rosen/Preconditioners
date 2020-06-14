@@ -12,3 +12,9 @@ enable_testing()
 
 add_executable(ILDLFactorizationTest ILDLFactorizationTest.cpp)
 target_link_libraries(ILDLFactorizationTest SymILDLSupport gtest_main)
+
+add_executable(example example.cpp)
+target_link_libraries(example SymILDLSupport)
+
+add_executable(minimal_working_example minimal_working_example.cpp)
+target_link_libraries(minimal_working_example SymILDLSupport)
