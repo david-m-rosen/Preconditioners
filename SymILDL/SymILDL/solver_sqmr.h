@@ -7,7 +7,7 @@
 #include <cmath>
 
 template<class el_type, class mat_type >
-void solver<el_type, mat_type> :: sqmr(int max_iter, double stop_tol) {
+int solver<el_type, mat_type> :: sqmr(int max_iter, double stop_tol) {
 	//Zero out solution vector
 	int n = A.n_rows();
 	sol_vec.resize(n, 0);
@@ -108,7 +108,7 @@ void solver<el_type, mat_type> :: sqmr(int max_iter, double stop_tol) {
     if (k-1 == 1) iter_str = "iteration";
 
 	if (msg_lvl) printf("SQMR took %i %s and got down to relative residual %e.\n", k-1, iter_str.c_str(), resmin/norm_rhs);
-	return;
+        return k - 1;
 }
 
 #endif // _SOLVER_SQMR_H_

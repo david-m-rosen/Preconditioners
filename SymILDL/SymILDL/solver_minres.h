@@ -7,7 +7,7 @@
 #include <cmath>
 
 template<class el_type, class mat_type >
-void solver<el_type, mat_type> :: minres(int max_iter, double stop_tol, double shift) {
+int solver<el_type, mat_type> :: minres(int max_iter, double stop_tol, double shift) {
 	//Zero out solution vector
 	int n = A.n_rows();
 	sol_vec.resize(n, 0);
@@ -167,7 +167,7 @@ void solver<el_type, mat_type> :: minres(int max_iter, double stop_tol, double s
     if (k-1 == 1) iter_str = "iteration";
 
 	if (msg_lvl) printf("MINRES took %i %s and got down to relative residual %e.\n", k-1, iter_str.c_str(), res[(k+1)%2]/norm_rhs);
-	return;
+        return k-1;
 }
 
 #endif // _SOLVER_MINRES_H_

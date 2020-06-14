@@ -434,14 +434,14 @@ class solver {
 			\param stop_tol the stopping tolerance of minres. i.e. we stop as soon as the residual goes below stop_tol.
 			\param shift shifts A by shift*(identity matrix) to make it more positive definite. This sometimes helps.
 		*/
-		void minres(int max_iter = 1000, double stop_tol = 1e-6, double shift = 0.0);
+                int minres(int max_iter = 1000, double stop_tol = 1e-6, double shift = 0.0);
 		
 		/*! \brief Applies SMQR on A, preconditioning with factors L and D.
 			
 			\param max_iter the maximum number of minres iterations.
 			\param stop_tol the stopping tolerance of minres. i.e. we stop as soon as the residual goes below stop_tol.
 		*/
-		void sqmr(int max_iter = 1000, double stop_tol = 1e-6);
+                int sqmr(int max_iter = 1000, double stop_tol = 1e-6);
 		
 		/*! \brief Save results of factorization (automatically saved into the output_matrices folder).
 			
