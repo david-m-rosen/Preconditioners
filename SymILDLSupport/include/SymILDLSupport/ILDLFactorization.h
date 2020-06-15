@@ -1,6 +1,17 @@
 /** This class provides functionality for computing an incomplete LDL^T
  * factorization of a symmetric indefinite matrix using the SYM-ILDL library.
  *
+ * Specifically, we compute an incomplete factorization of the form:
+ *
+ *   P'SASP ~ LDL'
+ *
+ * where:
+ *
+ * - P is a permutation of the rows and columns of A
+ * - S is a diagonal scaling matrix used to equilibrate A
+ * - L is a unit lower-triangular matrix
+ * - D is a block-diagonal matrix comprised of 1x1 and 2x2 blocks
+ *
  * The interface it provides is based upon the ones used by the Eigen library's
  * built-in matrix factorization types.
  *
@@ -8,6 +19,8 @@
  */
 
 #pragma once
+
+#include <unordered_map>
 
 #include "lilc_matrix.h" // SYM-ILDL matrix type
 
@@ -64,10 +77,6 @@ struct SymILDLOpts {
   /** This parameter determines the equilibration (scaling) strategy to apply
    * when factoring the matrix */
   Equilibration equilibration = Equilibration::Bunch;
-
-  /** A Boolean value indicating whether the block-diagonal matrix D should be
-   * modified to enforce positive-definiteness of the factorization */
-  bool pos_def_mod = false;
 };
 
 /** This lightweight class computes an incomplete LDL^T factorization of the
@@ -77,35 +86,47 @@ struct SymILDLOpts {
  *
  * where:
  *
+ * - P is a permutation of the rows and columns of A
  * - S is an [optional] diagonal scaling matrix used to equilibrate A
- * - P is an [optional] fill-reducing row and column permutation for A
- * - L is a lower-triangular factor
- * - D is a block-diagonal matrix with blocks of size <= 2
+ * - L is a unit lower-triangular matrix
+ * - D is a block-diagonal matrix comprised of 1x1 and 2x2 blocks
  */
 class ILDLFactorization {
 private:
   /// Data members
+
+  /** Dimension of the matrix stored in this factorization */
+  size_t dim_;
 
   /** Structure containing options for the SYM-ILDL library */
   SymILDLOpts opts_;
 
   /// FACTORIZATION ELEMENTS: Elements of the factorization of PSASP = LDL'
 
-  /** Fill-reducing permutation P */
-  lilc_matrix<Scalar>::idx_vector_type perm_;
+  /** Permutation P */
+  PermutationVector P_;
 
-  /** Scaling matrix S_ */
-  block_diag_matrix<Scalar> S_;
+  /** Inverse permutation Pinv */
+  PermutationVector Pinv_;
+
+  /** Diagonal scaling matrix S */
+  Vector S_;
 
   /** Lower-triangular factor */
-  lilc_matrix<Scalar> L_;
+  SparseMatrix L_;
 
-  /** Block-diagonal matrix D */
-  block_diag_matrix<Scalar> D_;
+  /// We store an eigendecomposition of the block-diagonal matrix D
 
-  /** Working space for linear algebra operations */
-  std::vector<Scalar> tmp_;
-  std::vector<Scalar> x_;
+  Vector Lambda_;
+
+  /** These vectors keep track of the starting (upper-left) index of each of the
+   * blocks on D's diagonal, and the dimension (1 or 2) of that block */
+  std::vector<int> block_start_idxs_;
+  std::vector<int> block_sizes_;
+
+  /** This map associates to each 2x2 block Di the orthogonal matrix Qi such
+   * that Di = Qi * Lambda_i * Qi' */
+  std::unordered_map<int, Matrix2d> Q_;
 
   // Boolean value indicating whether the object contains a valid cached
   // factorization
@@ -137,18 +158,63 @@ public:
   void clear();
 
   /** Approximate the solution of Ax = b using the incomplete factorization */
-  Vector solve(const Vector &b) const;
+  // Vector solve(const Vector &b) const;
 
   /// Accessors
 
+  /** Return the dimension of the matrix stored in this factorization */
+  const size_t dim() const { return dim_; }
+
   /** Return fill-reducing permutation ordering used in the factorization */
-  const std::vector<int> &permutation() const { return perm_; }
+  const PermutationVector &P() const { return P_; }
 
-  /** Return the number of nonzeros in the lower-triangular factor */
-  int L_nnz() const { return L_.nnz_count; }
+  /** Return the equilibration (scaling) matrix S */
+  const Vector &S() const { return S_; }
 
-  /** Return number of nonzeros in the block-diagonal factor D */
-  int D_nnz() const { return D_.nnz_count; }
+  /** Return the lower-triangular factor L */
+  const SparseMatrix &L() const { return L_; }
+
+  /** Return the block-diagonal matrix D.  If pos_def_mod = true, the returned
+   * matrix is modified to ensure that it is positive-definite */
+  SparseMatrix D(bool pos_def_mod = false) const;
+
+  /** Return the total number of blocks in the block-diagonal matrix D */
+  size_t num_blocks() const { return block_sizes_.size(); }
+
+  /** Return the number of 2x2 blocks in the block-diagonal matrix D */
+  size_t num_2x2_blocks() const { return Q_.size(); }
+
+  /// Linear-algebraic operations
+
+  /** Compute the matrix-vector product D*x.  If pos_def_mod is 'true', the
+   * product is computed with a positive-definite modification with D*/
+  Vector Dproduct(const Vector &x, bool pos_def_mod = false) const;
+
+  /** Solve the linear system Dx = b.  If pos_def_mod is 'true', the system is
+   * solved with D replaced by its positive-definite modification */
+  Vector Dsolve(const Vector &b, bool pos_def_mode = false) const;
+
+  /** Solve the linear system (D+)^{1/2} * x = b, where (D+)^{1/2} is the
+   * symmetric square-root of the positive-definite modification of the
+   * block-diagonal matrix D. */
+  Vector sqrtDsolve(const Vector &b) const;
+
+  /** Solve the linear system LDL'x = b. If pos_def_mod is 'true', the
+   * system is solved using a positive-definite modification of D */
+  Vector LDLTsolve(const Vector &b, bool pos_def_mode = false) const;
+
+  /** Solve the linear system (D+)^{1/2}L' * x = b, where (D+)^{1/2} is the
+   * symmetric square-root of the positive-definite modification of the
+   * block-diagonal matrix D.  If transpose = true, this function instead solves
+   * the linear system L D^{1/2} x = b (corresponding to transposing the
+   * coefficient matrix). */
+  Vector sqrtDLTsolve(const Vector &b, bool transpose = false) const;
+
+  /** Compute an approximate solution of Ax = b using the incomplete LDLT
+   * factorization.  If pos_def_mod is 'true', the block-diagonal matrix D is
+   * modified to ensure that the corresponding modification of A is
+   * positive-definite */
+  Vector solve(const Vector &b, bool pos_def_mod = false) const;
 };
 
 } // namespace SymILDLSupport

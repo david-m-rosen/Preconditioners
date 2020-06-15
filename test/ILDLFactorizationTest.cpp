@@ -1,6 +1,8 @@
 #include "SymILDLSupport/ILDLFactorization.h"
 #include "SymILDLSupport/SymILDLUtils.h"
 
+#include "solver.h"
+
 #include <Eigen/Eigenvalues>
 #include <complex>
 
@@ -9,11 +11,14 @@
 using namespace SymILDLSupport;
 using namespace std;
 
+typedef Eigen::MatrixXd Matrix;
+
 class ILDLFactorizationTest : public testing::Test {
 protected:
   /// Test configuration
 
-  double rel_tol = 1e-6; // Relative tolerance for linear solutions
+  double rel_tol = 1e-6; // Relative error tolerance
+  double eps = 1e-6;     // Absolute error tolerance
 
   /// Test data
 
@@ -97,7 +102,57 @@ TEST_F(ILDLFactorizationTest, toCSR) {
   }
 }
 
-TEST_F(ILDLFactorizationTest, ExactFactorization) {
+/// Compute an *exact* LDL factorization, and verify that the elements P, S, L,
+/// and D are computed correctly
+TEST_F(ILDLFactorizationTest, ExactFactorizationElements) {
+
+  /// Compute factorization using SYM-ILDL's built-in solver
+
+  // Construct CSR representation of A
+  std::vector<int> row_ptr;
+  std::vector<int> col_idx;
+  std::vector<Scalar> val;
+  toCSR(A, row_ptr, col_idx, val);
+
+  symildl::solver<Scalar> solver;
+
+  // Turn off messaging
+  solver.msg_lvl = 0;
+
+  // Load in initial matrix
+  solver.load(row_ptr, col_idx, val);
+
+  // Save initial matrix A
+  solver.A.save("A.txt", true);
+
+  // Set reordering scheme
+  switch (opts.order) {
+  case Ordering::AMD:
+    solver.reorder_type = symildl::reordering_type::AMD;
+    break;
+  case Ordering::RCM:
+    solver.reorder_type = symildl::reordering_type::RCM;
+    break;
+  case Ordering::None:
+    solver.reorder_type = symildl::reordering_type::NONE;
+    break;
+  }
+
+  // Set equilibration scheme
+  solver.equil_type = (opts.equilibration == Equilibration::Bunch
+                           ? symildl::equilibration_type::BUNCH
+                           : symildl::equilibration_type::NONE);
+
+  // Set pivoting type
+  solver.piv_type = (opts.pivot_type == PivotType::Rook
+                         ? lilc_matrix<Scalar>::pivot_type::ROOK
+                         : lilc_matrix<Scalar>::pivot_type::BKP);
+
+  solver.has_rhs = false;
+  solver.perform_inplace = false;
+  solver.solve(opts.max_fill_factor, opts.drop_tol, opts.BK_pivot_tol);
+
+  /// Compute factorization using ILDLFactorization
 
   // Set factorization options
   Afact.setOptions(opts);
@@ -105,28 +160,73 @@ TEST_F(ILDLFactorizationTest, ExactFactorization) {
   // Compute factorization
   Afact.compute(A);
 
-  Eigen::MatrixXd Id = Eigen::MatrixXd::Identity(A.rows(), A.rows());
-  Eigen::MatrixXd Ainv(A.rows(), A.rows());
+  // Extract elements of this factorization
+  SparseMatrix D = Afact.D();
+  const SparseMatrix &L = Afact.L();
 
-  // Compute inverse of A by solving A*Ainv = Id column-by-column
-  for (int k = 0; k < A.rows(); ++k)
-    Ainv.col(k) = Afact.solve(Id.col(k));
+  /// Ensure that the elements P, S, L, and D of the factorizations computed by
+  /// SYM-ILDL and ILDLFactorization coincide
 
-  Eigen::MatrixXd Ainv_gt = Eigen::MatrixXd(A).inverse();
+  /// Ensure that the permutations P agree
+  EXPECT_EQ(Afact.P().size(), solver.perm.size());
+  for (int k = 0; k < Afact.P().size(); ++k)
+    EXPECT_EQ(Afact.P()(k), solver.perm[k]);
 
-  EXPECT_LT((Ainv_gt - Ainv).norm(), rel_tol * Ainv_gt.norm());
+  /// Ensure that the scaling matrices agree
+  EXPECT_EQ(Afact.S().size(), solver.A.S.main_diag.size());
+  for (int k = 0; k < Afact.S().size(); ++k)
+    EXPECT_FLOAT_EQ(Afact.S()(k), solver.A.S.main_diag[k]);
+
+  /// Ensure that the lower-triangular factors agree
+  EXPECT_EQ(Afact.L().nonZeros(), solver.L.nnz());
+  for (int k = 0; k < Afact.L().outerSize(); ++k)
+    for (SparseMatrix::InnerIterator it(Afact.L(), k); it; ++it)
+      EXPECT_FLOAT_EQ(it.value(), solver.L.coeff(it.row(), it.col()));
+
+  /// Ensure that the block-diagonal matrices D agree
+
+  // Extract lower triangle from D
+  SparseMatrix DLT = D.triangularView<Eigen::Lower>();
+  EXPECT_EQ(DLT.nonZeros(), solver.D.nnz());
+  for (int k = 0; k < DLT.outerSize(); ++k)
+    for (SparseMatrix::InnerIterator it(DLT, k); it; ++it) {
+      int i = it.row();
+      int j = it.col();
+      if (i == j) {
+        // This is a diagonal element
+        EXPECT_LT(fabs(it.value() - solver.D.main_diag.at(i)), eps);
+      } else {
+        // This is the off-diagonal element *below* the element D(j,j)
+        EXPECT_LT(fabs(it.value() - solver.D.off_diag.at(j)), eps);
+      }
+    }
+
+  /// Save the matrices constructed by the SYM-ILDL solver
+
+  std::ofstream perm_file("P.txt");
+  for (const auto &i : solver.perm)
+    perm_file << i << " ";
+  perm_file << std::endl;
+  perm_file.close();
+
+  solver.A.S.save("S.txt");
+  solver.L.save("L.txt", true);
+  solver.D.save("D.txt");
+
+  /// Verify that the elements of the factorization satisfy P'SASP = LDL'
+
+  SparseMatrix SAS = Afact.S().asDiagonal() * A * Afact.S().asDiagonal();
+  SparseMatrix PtSASP;
+  PtSASP = SAS.twistedBy(Afact.P().asPermutation().inverse());
+
+  SparseMatrix LDLt = Afact.L() * Afact.D() * Afact.L().transpose();
+
+  EXPECT_LT((PtSASP - LDLt).norm(), rel_tol * PtSASP.norm());
 }
 
-TEST_F(ILDLFactorizationTest, PositiveDefiniteFactorization) {
-
-  // Setting max-fill to a be huge and drop tol = 0 results in an exact LDL
-  // factorization
-  opts.max_fill_factor = 1e3;
-  opts.drop_tol = 0;
-
-  // Modify the block-diagonal matrix D to ensure that LDL is
-  // positive-definitite
-  opts.pos_def_mod = true;
+/// Compute a modified LDL factorization, modifying D to ensure that it is
+/// positive-definite
+TEST_F(ILDLFactorizationTest, PositiveDefiniteModification) {
 
   // Set factorization options
   Afact.setOptions(opts);
@@ -134,19 +234,186 @@ TEST_F(ILDLFactorizationTest, PositiveDefiniteFactorization) {
   // Compute factorization
   Afact.compute(A);
 
-  Eigen::MatrixXd Adense = Eigen::MatrixXd(A);
-  Eigen::MatrixXd PA(A.rows(), A.rows());
+  // Extract diagonal matrix D
+  Matrix D = Afact.D();
 
-  // Compute the preconditioned matrix PA by solving PA = Afact^-1 * A
-  // column-by-column
-  for (int k = 0; k < A.rows(); ++k)
-    PA.col(k) = Afact.solve(Adense.col(k));
+  // Extract diagonal matrix D, modifying it to ensure positive-definiteness
+  Matrix Dpos = Afact.D(true);
 
-  // Compute eigenvalues of PA: these should be +/- 1
-  Eigen::EigenSolver<Eigen::MatrixXd> eigs(PA);
+  // Compute the matrix P = Dinv*Dpos
+  Matrix P = D.inverse() * Dpos;
 
-  /// Ensure that each eigenvalue is either +/- 1
-  for (int k = 0; k < PA.rows(); ++k)
-    EXPECT_TRUE((abs(eigs.eigenvalues()(k) - 1.0) < rel_tol) ||
-                (abs(eigs.eigenvalues()(k) + 1.0) < rel_tol));
+  /// We modify D by taking the absolute values of its eigenvalues -- therefore,
+  /// the only eigenvalues of Dinv*Dpos should be +/- 1
+  Eigen::EigenSolver<Matrix> eigs(P);
+
+  for (int k = 0; k < eigs.eigenvalues().size(); ++k)
+    EXPECT_TRUE(fabs(eigs.eigenvalues()(k) - 1.0) < eps ||
+                (fabs(eigs.eigenvalues()(k) + 1.0) < eps));
+}
+
+/// Test computation of products with the diagonal matrix D
+TEST_F(ILDLFactorizationTest, DProduct) {
+
+  // Set factorization options
+  Afact.setOptions(opts);
+
+  // Compute factorization
+  Afact.compute(A);
+
+  // Extract diagonal matrix D
+  Matrix D = Afact.D();
+
+  // Extract diagonal matrix D, modifying it to ensure positive-definiteness
+  Matrix Dpos = Afact.D(true);
+
+  /// Test computation of products with diagonal matrix
+  Vector ygt = D * xtest;
+  Vector y = Afact.Dproduct(xtest);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+
+  /// Test computation of products with positive-definite modification of
+  /// diagonal matrix
+  ygt = Dpos * xtest;
+  y = Afact.Dproduct(xtest, true);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+}
+
+/// Test solving linear systems of the form Dx = b
+TEST_F(ILDLFactorizationTest, Dsolve) {
+
+  // Set factorization options
+  Afact.setOptions(opts);
+
+  // Compute factorization
+  Afact.compute(A);
+
+  // Extract diagonal matrix D
+  Matrix D = Afact.D();
+
+  // Extract diagonal matrix D, modifying it to ensure positive-definiteness
+  Matrix Dpos = Afact.D(true);
+
+  /// Test computation of products with diagonal matrix
+  Vector ygt = D.inverse() * xtest;
+  Vector y = Afact.Dsolve(xtest);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+
+  /// Test computation of products with positive-definite modification of
+  /// diagonal matrix
+  ygt = Dpos.inverse() * xtest;
+  y = Afact.Dsolve(xtest, true);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+}
+
+/// Test solving linear systems of the form (D+)^{1/2} x = b, were D+ is the
+/// positive-definite modification of the block-diagonal matrix Ds
+TEST_F(ILDLFactorizationTest, sqrtDsolve) {
+
+  // Set factorization options
+  Afact.setOptions(opts);
+
+  // Compute factorization
+  Afact.compute(A);
+
+  // Extract diagonal matrix D
+  Matrix D = Afact.D();
+
+  // Compute symmetric eigendecomposition of D
+  Eigen::SelfAdjointEigenSolver<Matrix> eig(D);
+
+  Matrix Q = eig.eigenvectors();
+  Vector Lambda = eig.eigenvalues();
+
+  // Compute ground-truth solution ygt
+  Vector ygt = Q * Lambda.cwiseAbs().cwiseSqrt().cwiseInverse().asDiagonal() *
+               Q.transpose() * xtest;
+
+  Vector y = Afact.sqrtDsolve(xtest);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+}
+
+/// Test solving linear systems of the form LDL' x = b
+TEST_F(ILDLFactorizationTest, LDLTsolve) {
+
+  // Set factorization options
+  Afact.setOptions(opts);
+
+  // Compute factorization
+  Afact.compute(A);
+
+  // Extract diagonal matrix D
+  Matrix D = Afact.D();
+  Matrix Dpos = Afact.D(true);
+
+  Matrix LDLt = Afact.L() * D * Afact.L().transpose();
+  Matrix LDposLt = Afact.L() * Dpos * Afact.L().transpose();
+
+  /// Compute ground-truth solution
+  Vector ygt = LDLt.inverse() * xtest;
+
+  Vector y = Afact.LDLTsolve(xtest);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+
+  /// Compute ground-truth solution for positive-definite modification
+  ygt = LDposLt.inverse() * xtest;
+
+  y = Afact.LDLTsolve(xtest, true);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+}
+
+/// Test solving linear systems of the form (D+)^{1/2} L' x = b
+TEST_F(ILDLFactorizationTest, sqrtDLTsolve) {
+
+  // Set factorization options
+  Afact.setOptions(opts);
+
+  // Compute factorization
+  Afact.compute(A);
+
+  // Extract diagonal matrix Dpos
+  Matrix Dpos = Afact.D(true);
+
+  // Compute symmetric square square root of D
+  Eigen::SelfAdjointEigenSolver<Matrix> eig(Dpos);
+  Matrix sqrtD = eig.eigenvectors() *
+                 eig.eigenvalues().cwiseSqrt().asDiagonal() *
+                 eig.eigenvectors().transpose();
+
+  Matrix sqrtDLt = sqrtD * Afact.L().transpose();
+  Matrix sqrtDLt_inv = sqrtDLt.inverse();
+
+  /// Compute ground-truth solution for (D+)^{1/2} L' x = b
+  Vector ygt = sqrtDLt_inv * xtest;
+  Vector y = Afact.sqrtDLTsolve(xtest);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+
+  /// Compute ground-truth solution for L(D+)^{1/2} x = b
+  ygt = sqrtDLt_inv.transpose() * xtest;
+  y = Afact.sqrtDLTsolve(xtest, true);
+  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
+}
+
+/// Test approximate solution of Ax = b using incomplete factorization
+TEST_F(ILDLFactorizationTest, solve) {
+
+  // Set factorization options
+  Afact.setOptions(opts);
+
+  // Compute factorization
+  Afact.compute(A);
+
+  // Compute A^-1
+  Matrix Ainv_gt = A.toDense().inverse();
+
+  // Compute A^-1 by applying the preconditioner Afact to each column of the
+  // identity matrix Id
+  Matrix Id = Matrix::Identity(A.rows(), A.cols());
+
+  Matrix Ainv(Afact.dim(), Afact.dim());
+
+  for (int k = 0; k < Afact.dim(); ++k)
+    Ainv.col(k) = Afact.solve(Id.col(k));
+
+  EXPECT_LT((Ainv - Ainv_gt).norm(), rel_tol * Ainv_gt.norm());
 }

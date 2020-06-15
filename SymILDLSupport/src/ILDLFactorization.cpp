@@ -1,6 +1,7 @@
 #include <exception>
 #include <iostream>
 
+#include "Eigen/Eigenvalues"
 #include "SymILDLSupport/ILDLFactorization.h"
 #include "SymILDLSupport/SymILDLUtils.h"
 
@@ -54,6 +55,24 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
   if (A.rows() != A.cols())
     throw std::invalid_argument("Argument A must be a symmetric matrix!");
 
+  // Dimension of A
+  dim_ = A.rows();
+
+  /// Preallocate storage to hold the incomplete factorization of A, computed
+  /// using SYM-ILDL
+
+  // LIL-C representation of A used by SYM-ILDL
+  lilc_matrix<Scalar> Alilc;
+
+  // Lower-triangular factor L
+  lilc_matrix<Scalar> L;
+
+  // Block-diagonal factor D
+  block_diag_matrix<Scalar> D;
+
+  // Row/col permutation
+  std::vector<int> perm(dim_);
+
   /// Construct representation of A
 
   // Construct CSR representation of
@@ -65,8 +84,6 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
   // SYM-ILDL expects compressed COLUMN storage arguments, here we take
   // advantage of the fact that the CSR representation of A's UPPER TRIANGLE
   // actually coincides with the CSC representation of A's LOWER TRIANGLE :-)
-  lilc_matrix<double> Alilc;
-
   Alilc.load(row_ptr, col_idx, val);
 
   /// Equilibrate A using a diagonal scaling matrix S, if requested.
@@ -75,83 +92,118 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
   if (opts_.equilibration == Equilibration::Bunch)
     Alilc.sym_equil();
 
-  // Store the (diagonal) scaling matrix S
-  S_.main_diag.resize(A.rows());
-  for (int k = 0; k < S_.main_diag.size(); ++k)
-    S_.main_diag[k] = Alilc.S.main_diag[k];
+  /// Record scaling matrix S
+  S_.resize(dim_);
+  for (int k = 0; k < dim_; ++k)
+    S_(k) = Alilc.S.main_diag[k];
 
   /// Compute fill-reducing reordering of A, if requested
   switch (opts_.order) {
   case Ordering::AMD:
-    Alilc.sym_amd(perm_);
+    Alilc.sym_amd(perm);
     break;
   case Ordering::RCM:
-    Alilc.sym_rcm(perm_);
+    Alilc.sym_rcm(perm);
     break;
   case Ordering::None:
     // Set perm to be the identity permutation
-    perm_.resize(A.rows());
-    for (int k = 0; k < A.rows(); ++k)
-      perm_[k] = k;
+    perm.resize(dim_);
+    for (int k = 0; k < dim_; ++k)
+      perm[k] = k;
     break;
   }
 
   // Apply this permutation to A_, if one was requested
   if (opts_.order != Ordering::None)
-    Alilc.sym_perm(perm_);
+    Alilc.sym_perm(perm);
 
-  /// Compute incomplete LDL factorization of P*S*A*S*P
-  Alilc.ildl(L_, D_, perm_, opts_.max_fill_factor, opts_.drop_tol,
+  /// Compute in-place LDL factorization of P*S*A*S*P
+  Alilc.ildl(L, D, perm, opts_.max_fill_factor, opts_.drop_tol,
              opts_.BK_pivot_tol,
              (opts_.pivot_type == PivotType::Rook
                   ? lilc_matrix<Scalar>::pivot_type::ROOK
                   : lilc_matrix<Scalar>::pivot_type::BKP));
 
-  /// Preallocate working space for linear algebra operations
+  /// Record the final permutation in P and Pinv
+  P_.resize(dim_);
+  Pinv_.resize(dim_);
+  for (int k = 0; k < dim_; ++k) {
+    P_(k) = perm[k];
+    Pinv_[P_(k)] = k;
+  }
 
-  tmp_.resize(A.rows());
-  x_.resize(A.rows());
+  /// Construct lower-triangular Eigen matrix L_ from L
+  std::vector<Eigen::Triplet<Scalar>> triplets;
+  triplets.reserve(L.nnz());
+
+  // From the lilc_matrix documentation: A(m_idx[k][j], k) = m_x[k][j]
+  for (int k = 0; k < L.n_cols(); ++k)
+    for (int j = 0; j < L.m_idx[k].size(); ++j)
+      triplets.emplace_back(L.m_idx[k][j], k, L.m_x[k][j]);
+
+  L_.resize(dim_, dim_);
+  L_.setFromTriplets(triplets.begin(), triplets.end());
+
+  /// Construct and record eigendecomposition for block diagonal matrix D
+
+  // Get the number of 1- and 2-d blocks in D
+  size_t num_2d_blocks = D.off_diag.size();
+  size_t num_1d_blocks = dim_ - 2 * num_2d_blocks;
+  size_t num_blocks = num_1d_blocks + num_2d_blocks;
+
+  // Preallocate storage for this computation
+  Lambda_.resize(dim_);
+  block_start_idxs_.resize(num_blocks);
+  block_sizes_.resize(num_blocks);
+
+  // 2x2 matrix we will use to store any 2x2 blocks of D
+  Matrix2d Di;
+  // Eigensolver for computing an eigendecomposition of the 2x2 blocks of D
+  Eigen::SelfAdjointEigenSolver<Matrix2d> eig;
+
+  int idx = 0; // Starting (upper-left) index of the current block
+  for (size_t i = 0; i < num_blocks; ++i) {
+    // Record the starting index of this block
+    block_start_idxs_[i] = idx;
+
+    if (D.block_size(idx) > 1) {
+      // This is a 2x2 block
+      block_sizes_[i] = 2;
+
+      // Extract 2x2 block from D
+
+      // Extract diagonal elements
+      Di(0, 0) = D.main_diag[idx];
+      Di(1, 1) = D.main_diag[idx + 1];
+      // Extract off-diagonal elements
+      Di(0, 1) = D.off_diag.at(idx);
+      Di(1, 0) = D.off_diag.at(idx);
+
+      // Compute eigendecomposition of Di
+      eig.compute(Di);
+
+      // Record eigenvalues of this block
+      Lambda_.segment<2>(idx) = eig.eigenvalues();
+
+      // Record eigenvectors of this block
+      Q_[i] = eig.eigenvectors();
+
+      // Increment index
+      idx += 2;
+    } else {
+      /// This is a 1x1 block
+      block_sizes_[i] = 1;
+
+      // Record eigenvalue
+      Lambda_(idx) = D.main_diag[idx];
+
+      // Increment index
+      ++idx;
+    }
+  }
 
   // Record the fact that we now have a valid cached factorization
   initialized_ = true;
-}
-
-Vector ILDLFactorization::solve(const Vector &b) const {
-
-  if (!initialized_)
-    throw std::logic_error(
-        "You must compute() a factorization before solving linear systems!");
-
-  // Recall that since P'SASP ~ LDL', then A^-1 ~ S P L^{-T} D^-1 L^-1 P^T S
-
-  // Get non-const references to working variables
-  std::vector<Scalar> &tmp = const_cast<std::vector<Scalar> &>(tmp_);
-  std::vector<Scalar> &x = const_cast<std::vector<Scalar> &>(x_);
-  lilc_matrix<Scalar> &L = const_cast<lilc_matrix<Scalar> &>(L_);
-  block_diag_matrix<Scalar> &S = const_cast<block_diag_matrix<Scalar> &>(S_);
-  block_diag_matrix<Scalar> &D = const_cast<block_diag_matrix<Scalar> &>(D_);
-
-  /// STEP 1: Scale and permute right-hand side vector
-  for (int k = 0; k < b.size(); ++k)
-    tmp[k] = S[perm_[k]] * b(perm_[k]);
-
-  /// STEP 2:  SOLVE LDL'y = rhs
-
-  L.backsolve(tmp, x);
-
-  if (opts_.pos_def_mod)
-    D.pos_def_solve(x, tmp);
-  else
-    D.solve(x, tmp);
-
-  L.forwardsolve(tmp, x);
-
-  /// STEP 3:  Scale and permute solution
-  Vector X(b.size());
-  for (int k = 0; k < b.size(); ++k)
-    X(perm_[k]) = S[perm_[k]] * x[k];
-
-  return X;
 }
 
 void ILDLFactorization::clear() {
@@ -159,17 +211,206 @@ void ILDLFactorization::clear() {
   // If we have a cached factorization ...
   if (initialized_) {
     // Release the memory associated with this factorization
-    L_.list.clear();
-    L_.row_first.clear();
-    L_.col_first.clear();
-    S_.main_diag.clear();
-    S_.off_diag.clear();
-    tmp_.clear();
-    x_.clear();
+    block_start_idxs_.clear();
+    block_sizes_.clear();
+    Q_.clear();
   }
 
   // Record the fact that we no longer have a valid cached factorization
   initialized_ = false;
+}
+
+SparseMatrix ILDLFactorization::D(bool pos_def_mod) const {
+
+  if (!initialized_)
+    throw std::invalid_argument("Factorization has not yet been computed");
+
+  // We rebuild D from its eigendecomposition according to whether we are
+  // enforcing positive-definiteness
+
+  std::vector<Eigen::Triplet<Scalar>> triplets;
+  triplets.reserve(dim_ + 2 * num_2x2_blocks());
+
+  // Preallocate working variables
+  int idx; // Starting index of current block
+
+  Matrix2d Di; // Working space for reconstructing 2x2 blocks
+
+  // Iterate over the blocks of D
+  for (size_t i = 0; i < num_blocks(); ++i) {
+    idx = block_start_idxs_[i];
+    if (block_sizes_[i] == 1) {
+      triplets.emplace_back(idx, idx,
+                            pos_def_mod ? fabs(Lambda_(idx)) : Lambda_(idx));
+    } else {
+      // Reconstruct the 2x2 block here
+      const Matrix2d &Qi = Q_.at(i);
+
+      if (pos_def_mod)
+        Di = Qi * Lambda_.segment<2>(idx).cwiseAbs().asDiagonal() *
+             Qi.transpose();
+      else
+        Di = Qi * Lambda_.segment<2>(idx).asDiagonal() * Qi.transpose();
+
+      for (int r = 0; r < 2; ++r)
+        for (int c = 0; c < 2; ++c)
+          triplets.emplace_back(idx + r, idx + c, Di(r, c));
+    }
+  }
+
+  /// Reconstruct and return D
+  SparseMatrix D(dim_, dim_);
+  D.setFromTriplets(triplets.begin(), triplets.end());
+
+  return D;
+}
+
+Vector ILDLFactorization::Dproduct(const Vector &x, bool pos_def_mod) const {
+  /// Error checking
+  if (!initialized_)
+    throw std::invalid_argument("Factorization has not yet been computed");
+
+  if (x.size() != dim_)
+    throw std::invalid_argument("Argument x has incorrect dimension");
+
+  // Preallocate output vector y = D*x
+  Vector y(dim_);
+
+  // We compute the output vector y blockwise
+  for (int k = 0; k < num_blocks(); ++k) {
+
+    // Get the starting index for this block
+    const int &idx = block_start_idxs_[k];
+
+    if (block_sizes_[k] == 1) {
+      // This is a 1x1 block
+      y(idx) = (pos_def_mod ? fabs(Lambda_[idx]) : Lambda_[idx]) * x(idx);
+    } else {
+      // This is a 2x2 block
+      const Matrix2d &Qk = Q_.at(k);
+
+      if (!pos_def_mod) {
+        y.segment<2>(idx) = Qk * Lambda_.segment<2>(idx).asDiagonal() *
+                            Qk.transpose() * x.segment<2>(idx);
+      } else {
+        // Take the absolute values of the eigenvalues of this block to enforce
+        // positive-definiteness
+        y.segment<2>(idx) = Qk *
+                            Lambda_.segment<2>(idx).cwiseAbs().asDiagonal() *
+                            Qk.transpose() * x.segment<2>(idx);
+      }
+    }
+  }
+
+  return y;
+}
+
+Vector ILDLFactorization::Dsolve(const Vector &b, bool pos_def_mod) const {
+  /// Error checking
+  if (!initialized_)
+    throw std::invalid_argument("Factorization has not yet been computed");
+
+  if (b.size() != dim_)
+    throw std::invalid_argument("Argument b has incorrect dimension");
+
+  // Preallocate output vector x = D^-1 * b
+  Vector x(dim_);
+
+  // We compute the output vector y blockwise
+  for (int k = 0; k < num_blocks(); ++k) {
+
+    // Get the starting index for this block
+    const int &idx = block_start_idxs_[k];
+
+    if (block_sizes_[k] == 1) {
+      // This is a 1x1 block
+      x(idx) = b(idx) / (pos_def_mod ? fabs(Lambda_[idx]) : Lambda_[idx]);
+    } else {
+      // This is a 2x2 block
+      const Matrix2d &Qk = Q_.at(k);
+
+      if (!pos_def_mod) {
+        x.segment<2>(idx) =
+            Qk * Lambda_.segment<2>(idx).cwiseInverse().asDiagonal() *
+            Qk.transpose() * b.segment<2>(idx);
+      } else {
+        // Take the absolute values of the eigenvalues of this block to enforce
+        // positive-definiteness
+        x.segment<2>(idx) =
+            Qk *
+            Lambda_.segment<2>(idx).cwiseInverse().cwiseAbs().asDiagonal() *
+            Qk.transpose() * b.segment<2>(idx);
+      }
+    }
+  }
+
+  return x;
+}
+
+Vector ILDLFactorization::sqrtDsolve(const Vector &b) const {
+  /// Error checking
+  if (!initialized_)
+    throw std::invalid_argument("Factorization has not yet been computed");
+
+  if (b.size() != dim_)
+    throw std::invalid_argument("Argument b has incorrect dimension");
+
+  // Preallocate output vector x = (D+)^{-1/2} * b
+  Vector x(dim_);
+
+  // We compute the output vector y blockwise
+  for (int k = 0; k < num_blocks(); ++k) {
+
+    // Get the starting index for this block
+    const int &idx = block_start_idxs_[k];
+
+    if (block_sizes_[k] == 1) {
+      // This is a 1x1 block
+      x(idx) = b(idx) / sqrt(fabs(Lambda_[idx]));
+    } else {
+      // This is a 2x2 block
+      const Matrix2d &Qk = Q_.at(k);
+
+      // Take the absolute values of the eigenvalues of this block to enforce
+      // positive-definiteness
+      x.segment<2>(idx) = Qk *
+                          Lambda_.segment<2>(idx)
+                              .cwiseAbs()
+                              .cwiseSqrt()
+                              .cwiseInverse()
+                              .asDiagonal() *
+                          Qk.transpose() * b.segment<2>(idx);
+    }
+  }
+
+  return x;
+}
+
+Vector ILDLFactorization::LDLTsolve(const Vector &b, bool pos_def_mode) const {
+  /// Error checking
+  if (!initialized_)
+    throw std::invalid_argument("Factorization has not yet been computed");
+
+  if (b.size() != dim_)
+    throw std::invalid_argument("Argument b has incorrect dimension");
+
+  return L_.transpose().triangularView<Eigen::UnitUpper>().solve(
+      Dsolve(L_.triangularView<Eigen::UnitLower>().solve(b), pos_def_mode));
+}
+
+Vector ILDLFactorization::sqrtDLTsolve(const Vector &b, bool transpose) const {
+  if (!transpose)
+    return L_.transpose().triangularView<Eigen::UnitUpper>().solve(
+        sqrtDsolve(b));
+  else
+    return sqrtDsolve(L_.triangularView<Eigen::UnitLower>().solve(b));
+}
+
+Vector ILDLFactorization::solve(const Vector &b, bool pos_def_mod) const {
+  /// If P'SASP ~ LDL', then A^-1 ~ SP (LDL')^-1 P'S
+  return S_.cwiseProduct(
+      P_.asPermutation() *
+      LDLTsolve(Pinv_.asPermutation() * S_.cwiseProduct(b), pos_def_mod));
 }
 
 } // namespace SymILDLSupport
