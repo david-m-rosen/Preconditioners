@@ -166,7 +166,7 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
     // Record the starting index of this block
     block_start_idxs_[i] = idx;
 
-    if (D.block_size(i) > 1) {
+    if (D.block_size(idx) > 1) {
       // This is a 2x2 block
       block_sizes_[i] = 2;
 
