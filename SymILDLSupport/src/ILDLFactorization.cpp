@@ -61,8 +61,16 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
   /// Preallocate storage to hold the incomplete factorization of A, computed
   /// using SYM-ILDL
 
+  // LIL-C representation of A used by SYM-ILDL
+  lilc_matrix<Scalar> Alilc;
+
+  // Lower-triangular factor L
   lilc_matrix<Scalar> L;
+
+  // Block-diagonal factor D
   block_diag_matrix<Scalar> D;
+
+  // Row/col permutation
   std::vector<int> perm(dim_);
 
   /// Construct representation of A
@@ -76,26 +84,26 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
   // SYM-ILDL expects compressed COLUMN storage arguments, here we take
   // advantage of the fact that the CSR representation of A's UPPER TRIANGLE
   // actually coincides with the CSC representation of A's LOWER TRIANGLE :-)
-  L.load(row_ptr, col_idx, val);
+  Alilc.load(row_ptr, col_idx, val);
 
   /// Equilibrate A using a diagonal scaling matrix S, if requested.
-  // This will overwrite A_ with SAS, and save the diagonal scaling matrix as
-  // A_.S
+  // This will overwrite Alilc with SAS, and save the diagonal scaling matrix as
+  // Alilc.S
   if (opts_.equilibration == Equilibration::Bunch)
-    L.sym_equil();
+    Alilc.sym_equil();
 
   /// Record scaling matrix S
   S_.resize(dim_);
   for (int k = 0; k < dim_; ++k)
-    S_(k) = L.S.main_diag[k];
+    S_(k) = Alilc.S.main_diag[k];
 
   /// Compute fill-reducing reordering of A, if requested
   switch (opts_.order) {
   case Ordering::AMD:
-    L.sym_amd(perm);
+    Alilc.sym_amd(perm);
     break;
   case Ordering::RCM:
-    L.sym_rcm(perm);
+    Alilc.sym_rcm(perm);
     break;
   case Ordering::None:
     // Set perm to be the identity permutation
@@ -107,14 +115,14 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
 
   // Apply this permutation to A_, if one was requested
   if (opts_.order != Ordering::None)
-    L.sym_perm(perm);
+    Alilc.sym_perm(perm);
 
   /// Compute in-place LDL factorization of P*S*A*S*P
-  L.ildl_inplace(D, perm, opts_.max_fill_factor, opts_.drop_tol,
-                 opts_.BK_pivot_tol,
-                 (opts_.pivot_type == PivotType::Rook
-                      ? lilc_matrix<Scalar>::pivot_type::ROOK
-                      : lilc_matrix<Scalar>::pivot_type::BKP));
+  Alilc.ildl(L, D, perm, opts_.max_fill_factor, opts_.drop_tol,
+             opts_.BK_pivot_tol,
+             (opts_.pivot_type == PivotType::Rook
+                  ? lilc_matrix<Scalar>::pivot_type::ROOK
+                  : lilc_matrix<Scalar>::pivot_type::BKP));
 
   /// Record the final permutation in P and Pinv
   P_.resize(dim_);
@@ -135,9 +143,6 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
 
   L_.resize(dim_, dim_);
   L_.setFromTriplets(triplets.begin(), triplets.end());
-
-  L.save("L.txt");
-  D.save("D.txt");
 
   /// Construct and record eigendecomposition for block diagonal matrix D
 

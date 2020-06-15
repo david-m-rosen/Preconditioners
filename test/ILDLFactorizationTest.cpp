@@ -149,7 +149,7 @@ TEST_F(ILDLFactorizationTest, ExactFactorizationElements) {
                          : lilc_matrix<Scalar>::pivot_type::BKP);
 
   solver.has_rhs = false;
-  solver.perform_inplace = true;
+  solver.perform_inplace = false;
   solver.solve(opts.max_fill_factor, opts.drop_tol, opts.BK_pivot_tol);
 
   /// Compute factorization using ILDLFactorization
@@ -178,10 +178,10 @@ TEST_F(ILDLFactorizationTest, ExactFactorizationElements) {
     EXPECT_FLOAT_EQ(Afact.S()(k), solver.A.S.main_diag[k]);
 
   /// Ensure that the lower-triangular factors agree
-  EXPECT_EQ(Afact.L().nonZeros(), solver.A.nnz());
+  EXPECT_EQ(Afact.L().nonZeros(), solver.L.nnz());
   for (int k = 0; k < Afact.L().outerSize(); ++k)
     for (SparseMatrix::InnerIterator it(Afact.L(), k); it; ++it)
-      EXPECT_FLOAT_EQ(it.value(), solver.A.coeff(it.row(), it.col()));
+      EXPECT_FLOAT_EQ(it.value(), solver.L.coeff(it.row(), it.col()));
 
   /// Ensure that the block-diagonal matrices D agree
 
@@ -210,8 +210,18 @@ TEST_F(ILDLFactorizationTest, ExactFactorizationElements) {
   perm_file.close();
 
   solver.A.S.save("S.txt");
-  solver.A.save("L.txt", true);
+  solver.L.save("L.txt", true);
   solver.D.save("D.txt");
+
+  /// Verify that the elements of the factorization satisfy P'SASP = LDL'
+
+  SparseMatrix SAS = Afact.S().asDiagonal() * A * Afact.S().asDiagonal();
+  SparseMatrix PtSASP;
+  PtSASP = SAS.twistedBy(Afact.P().asPermutation().inverse());
+
+  SparseMatrix LDLt = Afact.L() * Afact.D() * Afact.L().transpose();
+
+  EXPECT_LT((PtSASP - LDLt).norm(), rel_tol * PtSASP.norm());
 }
 
 /// Compute a modified LDL factorization, modifying D to ensure that it is
@@ -385,19 +395,25 @@ TEST_F(ILDLFactorizationTest, sqrtDLTsolve) {
 }
 
 /// Test approximate solution of Ax = b using incomplete factorization
-// TEST_F(ILDLFactorizationTest, solve) {
+TEST_F(ILDLFactorizationTest, solve) {
 
-//  // Set factorization options
-//  Afact.setOptions(opts);
+  // Set factorization options
+  Afact.setOptions(opts);
 
-//  // Compute factorization
-//  Afact.compute(A);
+  // Compute factorization
+  Afact.compute(A);
 
-//  // Direct solve using A^-1
-//  Vector ygt = A.toDense().inverse() * xtest;
+  // Compute A^-1
+  Matrix Ainv_gt = A.toDense().inverse();
 
-//  // Solve using factorization
-//  Vector y = Afact.solve(xtest);
+  // Compute A^-1 by applying the preconditioner Afact to each column of the
+  // identity matrix Id
+  Matrix Id = Matrix::Identity(A.rows(), A.cols());
 
-//  EXPECT_LT((ygt - y).norm(), rel_tol * ygt.norm());
-//}
+  Matrix Ainv(Afact.dim(), Afact.dim());
+
+  for (int k = 0; k < Afact.dim(); ++k)
+    Ainv.col(k) = Afact.solve(Id.col(k));
+
+  EXPECT_LT((Ainv - Ainv_gt).norm(), rel_tol * Ainv_gt.norm());
+}
