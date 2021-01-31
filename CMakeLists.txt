@@ -32,13 +32,16 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/bin CACHE PATH "The direc
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" CACHE STRING "The CMake module path used for this project")
 
 
-# SymILDLSupport DEPENDENCIES
+# Preconditioners DEPENDENCIES
 
 # Find Eigen library
 find_package(Eigen3 REQUIRED)
 if(EIGEN3_FOUND)
 message(STATUS "Found Eigen3 library: ${EIGEN3_INCLUDE_DIR}")
 endif()
+
+# Find SPQR (required for LSChol)
+find_package(SPQR REQUIRED)
 
 # Find BLAS libraries
 find_package(BLAS REQUIRED)
@@ -79,13 +82,38 @@ ${ILDL_SOURCE_DIR}/ILDL_utils.cpp
 ${ILDL_SOURCE_DIR}/ILDL.cpp
 )
 
-
-# The ILDL headers and Eigen 3 are all referenced by the header files of the SYMILDLSupport library, hence must be PUBLICLY included (i.e. clients using the SYMILDLSupport headers must also include these headers)
+# The Sym-ILDL headers and Eigen 3 are both referenced by the header files of the ILDL library, hence must be PUBLICLY included (i.e. clients using the SYMILDLSupport headers must also include these headers)
 set(ILDL_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR} ${ILDL_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} CACHE INTERNAL "")
 
 add_library(ILDL SHARED ${ILDL_HDRS} ${ILDL_SRCS})
 target_include_directories(ILDL PUBLIC ${SymILDL_INCLUDE_DIR} ${ILDL_INCLUDES})
 target_link_libraries(ILDL ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+
+
+
+# SET UP LSChol LIBRARY
+
+# Set the various directories for this project
+set(LSChol_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Preconditioners/LSChol/include)
+set(LSChol_HDR_DIR ${LSChol_INCLUDE_DIR}/LSChol)
+set(LSChol_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Preconditioners/LSChol/src)
+
+# Get the set of LSChol header and source files
+set(LSChol_HDRS
+${CMAKE_CURRENT_SOURCE_DIR}/Preconditioners/Types.h
+${LSChol_HDR_DIR}/LSChol.h
+)
+
+set(LSChol_SRCS
+${LSChol_SOURCE_DIR}/LSChol.cpp
+)
+
+# Eigen 3 is referenced by the header files of the LSChol library, hence must be PUBLICLY included (i.e. clients using the SYMILDLSupport headers must also include these headers)
+set(LSChol_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR} ${LSChol_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR} CACHE INTERNAL "")
+
+add_library(LSChol SHARED ${LSChol_HDRS} ${LSChol_SRCS})
+target_include_directories(LSChol PUBLIC ${LSChol_INCLUDES})
+target_link_libraries(LSChol ${BLAS_LIBRARIES} ${SPQR_LIBRARIES} ${LAPACK_LIBRARIES})
 
 # Build unit tests
 if(${BUILD_TESTS})

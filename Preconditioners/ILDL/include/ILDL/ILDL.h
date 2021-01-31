@@ -156,9 +156,6 @@ public:
    * ILDL object */
   void clear();
 
-  /** Approximate the solution of Ax = b using the incomplete factorization */
-  // Vector solve(const Vector &b) const;
-
   /// Accessors
 
   /** Return the dimension of the matrix stored in this factorization */
