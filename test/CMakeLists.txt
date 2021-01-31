@@ -12,3 +12,6 @@ enable_testing()
 
 add_executable(ILDLTest ILDLTest.cpp)
 target_link_libraries(ILDLTest ILDL gtest_main)
+
+add_executable(LSCholTest LSCholTest.cpp)
+target_link_libraries(LSCholTest /usr/lib/x86_64-linux-gnu/libcholmod.so LSChol gtest_main)

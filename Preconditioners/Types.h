@@ -16,6 +16,7 @@ namespace Preconditioners {
 /// Linear algebra types
 typedef double Scalar;
 typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+typedef Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> Matrix;
 
 /// Typedef for a (fixed-size) 2x2 matrix
 typedef Eigen::Matrix2d Matrix2d;

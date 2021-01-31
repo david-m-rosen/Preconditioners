@@ -1,32 +1,40 @@
 #pragma once
 
-
 #include "Preconditioners/Types.h"
+
+#include "suitesparse/SuiteSparse_config.h"
+#include "suitesparse/cholmod_core.h"
 
 namespace Preconditioners {
 
-class LSCholesky {
+class LSChol {
 private:
   /// Data members
 
   /// FACTORIZATION ELEMENTS
 
-  /** Upper-triangular factor */
-  SparseMatrix R_;
+  /// Cholmod configuration struct
+  cholmod_common common;
+
+  /// Cholmod representation of sparse matrix A
+  cholmod_sparse *A_;
 
   // Boolean value indicating whether the object contains a valid cached
   // factorization
   bool initialized_ = false;
 
+  /// Helper function: initialize Cholmod
+  void init();
+
 public:
   /// Constructors
 
-  /** Construct an empty LSCholesky object */
-  LSCholesky();
+  /** Construct an empty LSChol object */
+  LSChol() {}
 
-  /** Construct an LSCholesky object containing a factorization
+  /** Construct an LSChol object containing a factorization
    * of the passed matrix A */
-  LSCholesky(const SparseMatrix &A);
+  LSChol(const SparseMatrix &A);
 
   /// Mutators
 
@@ -34,16 +42,10 @@ public:
   void compute(const SparseMatrix &A);
 
   /** Frees any cached factorizations currently held by the
-   * LSCholesky object */
+   * LSChol object */
   void clear();
 
-  /// Accessors
-
-  /** Return the upper-triangular factor R */
-  const SparseMatrix &R() const { return R_; }
-
-  /// Linear-algebraic operations
-
+  ~LSChol();
 };
 
 } // namespace Preconditioners

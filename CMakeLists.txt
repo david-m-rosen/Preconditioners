@@ -40,6 +40,9 @@ if(EIGEN3_FOUND)
 message(STATUS "Found Eigen3 library: ${EIGEN3_INCLUDE_DIR}")
 endif()
 
+# Find Cholmod (required for LSChol)
+find_package(Cholmod REQUIRED)
+
 # Find SPQR (required for LSChol)
 find_package(SPQR REQUIRED)
 
@@ -113,7 +116,7 @@ set(LSChol_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR} ${LSChol_INCLUDE_DIR} ${EIGEN3_I
 
 add_library(LSChol SHARED ${LSChol_HDRS} ${LSChol_SRCS})
 target_include_directories(LSChol PUBLIC ${LSChol_INCLUDES})
-target_link_libraries(LSChol ${BLAS_LIBRARIES} ${SPQR_LIBRARIES} ${LAPACK_LIBRARIES})
+target_link_libraries(LSChol ${BLAS_LIBRARIES} ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} ${LAPACK_LIBRARIES})
 
 # Build unit tests
 if(${BUILD_TESTS})
@@ -126,5 +129,5 @@ endif()
 # Add add entry for this project into CMake's package registry, so that this project can be found by other CMake projects
 export(PACKAGE ${PROJECT_NAME})
 # Create a configuration file for this project, so that it can be imported by other CMake projects
-export(TARGETS ILDL FILE ${PROJECT_NAME}Config.cmake)
+export(TARGETS ILDL LSChol FILE ${PROJECT_NAME}Config.cmake)
 
