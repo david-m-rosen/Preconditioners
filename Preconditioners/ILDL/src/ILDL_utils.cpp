@@ -1,6 +1,6 @@
-#include "SymILDLSupport/SymILDLUtils.h"
+#include "ILDL/ILDL_utils.h"
 
-namespace SymILDLSupport {
+namespace Preconditioners {
 
 void toCSR(const SparseMatrix &S, std::vector<int> &row_ptr,
            std::vector<int> &col_idx, std::vector<Scalar> &val) {
@@ -35,4 +35,4 @@ void toCSR(const SparseMatrix &S, std::vector<int> &row_ptr,
   row_ptr[S.rows()] = idx;
 }
 
-} // namespace SymILDLSupport
+} // namespace Preconditioners

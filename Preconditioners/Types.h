@@ -1,5 +1,5 @@
 /** A set of typedefs describing the basic types that will be used throughout
- * the SymILDL library.
+ * the Preconditioners library.
  *
  *  Copyright (C) 2020 by David M. Rosen (dmrosen@mit.edu)
  */
@@ -9,9 +9,9 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
-namespace SymILDLSupport {
+namespace Preconditioners {
 
-/// Some useful typedefs for the SymILDL library
+/// Some useful typedefs for the Preconditioners library
 
 /// Linear algebra types
 typedef double Scalar;
@@ -27,4 +27,4 @@ typedef Eigen::SparseMatrix<Scalar, Eigen::RowMajor> SparseMatrix;
 
 typedef Eigen::PermutationMatrix<Eigen::Dynamic>::IndicesType PermutationVector;
 
-} // namespace SymILDLSupport
+} // namespace Preconditioners

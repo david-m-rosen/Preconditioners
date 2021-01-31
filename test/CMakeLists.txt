@@ -1,4 +1,4 @@
-project(PardisoUtils-tests CXX)
+#project(PardisoUtils-tests CXX)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/googletest.cmake)
 fetch_googletest(
@@ -10,5 +10,5 @@ fetch_googletest(
 # Enable GTest unit testing
 enable_testing()
 
-add_executable(ILDLFactorizationTest ILDLFactorizationTest.cpp)
-target_link_libraries(ILDLFactorizationTest SymILDLSupport gtest_main)
+add_executable(ILDLTest ILDLTest.cpp)
+target_link_libraries(ILDLTest ILDL gtest_main)

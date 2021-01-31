@@ -1,5 +1,5 @@
-#include "SymILDLSupport/ILDLFactorization.h"
-#include "SymILDLSupport/SymILDLUtils.h"
+#include "ILDL/ILDL.h"
+#include "ILDL/ILDL_utils.h"
 
 #include "solver.h"
 
@@ -8,12 +8,12 @@
 
 #include "gtest/gtest.h"
 
-using namespace SymILDLSupport;
+using namespace Preconditioners;
 using namespace std;
 
 typedef Eigen::MatrixXd Matrix;
 
-class ILDLFactorizationTest : public testing::Test {
+class ILDLTest : public testing::Test {
 protected:
   /// Test configuration
 
@@ -29,9 +29,9 @@ protected:
   Vector xtest;
 
   // Pardiso options struct
-  SymILDLOpts opts;
+  ILDLOpts opts;
 
-  ILDLFactorization Afact;
+  ILDL Afact;
 
   void SetUp() override {
     /// Set the upper triangle of A to be:
@@ -71,7 +71,7 @@ protected:
   }
 };
 
-TEST_F(ILDLFactorizationTest, toCSR) {
+TEST_F(ILDLTest, toCSR) {
 
   // Construct CSR representation of A
 
@@ -104,7 +104,7 @@ TEST_F(ILDLFactorizationTest, toCSR) {
 
 /// Compute an *exact* LDL factorization, and verify that the elements P, S, L,
 /// and D are computed correctly
-TEST_F(ILDLFactorizationTest, ExactFactorizationElements) {
+TEST_F(ILDLTest, ExactFactorizationElements) {
 
   /// Compute factorization using SYM-ILDL's built-in solver
 
@@ -152,7 +152,7 @@ TEST_F(ILDLFactorizationTest, ExactFactorizationElements) {
   solver.perform_inplace = false;
   solver.solve(opts.max_fill_factor, opts.drop_tol, opts.BK_pivot_tol);
 
-  /// Compute factorization using ILDLFactorization
+  /// Compute factorization using ILDL
 
   // Set factorization options
   Afact.setOptions(opts);
@@ -165,7 +165,7 @@ TEST_F(ILDLFactorizationTest, ExactFactorizationElements) {
   const SparseMatrix &L = Afact.L();
 
   /// Ensure that the elements P, S, L, and D of the factorizations computed by
-  /// SYM-ILDL and ILDLFactorization coincide
+  /// SYM-ILDL and ILDL coincide
 
   /// Ensure that the permutations P agree
   EXPECT_EQ(Afact.P().size(), solver.perm.size());
@@ -226,7 +226,7 @@ TEST_F(ILDLFactorizationTest, ExactFactorizationElements) {
 
 /// Compute a modified LDL factorization, modifying D to ensure that it is
 /// positive-definite
-TEST_F(ILDLFactorizationTest, PositiveDefiniteModification) {
+TEST_F(ILDLTest, PositiveDefiniteModification) {
 
   // Set factorization options
   Afact.setOptions(opts);
@@ -253,7 +253,7 @@ TEST_F(ILDLFactorizationTest, PositiveDefiniteModification) {
 }
 
 /// Test computation of products with the diagonal matrix D
-TEST_F(ILDLFactorizationTest, DProduct) {
+TEST_F(ILDLTest, DProduct) {
 
   // Set factorization options
   Afact.setOptions(opts);
@@ -280,7 +280,7 @@ TEST_F(ILDLFactorizationTest, DProduct) {
 }
 
 /// Test solving linear systems of the form Dx = b
-TEST_F(ILDLFactorizationTest, Dsolve) {
+TEST_F(ILDLTest, Dsolve) {
 
   // Set factorization options
   Afact.setOptions(opts);
@@ -308,7 +308,7 @@ TEST_F(ILDLFactorizationTest, Dsolve) {
 
 /// Test solving linear systems of the form (D+)^{1/2} x = b, were D+ is the
 /// positive-definite modification of the block-diagonal matrix Ds
-TEST_F(ILDLFactorizationTest, sqrtDsolve) {
+TEST_F(ILDLTest, sqrtDsolve) {
 
   // Set factorization options
   Afact.setOptions(opts);
@@ -334,7 +334,7 @@ TEST_F(ILDLFactorizationTest, sqrtDsolve) {
 }
 
 /// Test solving linear systems of the form LDL' x = b
-TEST_F(ILDLFactorizationTest, LDLTsolve) {
+TEST_F(ILDLTest, LDLTsolve) {
 
   // Set factorization options
   Afact.setOptions(opts);
@@ -363,7 +363,7 @@ TEST_F(ILDLFactorizationTest, LDLTsolve) {
 }
 
 /// Test solving linear systems of the form (D+)^{1/2} L' x = b
-TEST_F(ILDLFactorizationTest, sqrtDLTsolve) {
+TEST_F(ILDLTest, sqrtDLTsolve) {
 
   // Set factorization options
   Afact.setOptions(opts);
@@ -395,7 +395,7 @@ TEST_F(ILDLFactorizationTest, sqrtDLTsolve) {
 }
 
 /// Test approximate solution of Ax = b using incomplete factorization
-TEST_F(ILDLFactorizationTest, solve) {
+TEST_F(ILDLTest, solve) {
 
   // Set factorization options
   Afact.setOptions(opts);

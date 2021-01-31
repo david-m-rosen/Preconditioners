@@ -2,27 +2,24 @@
 #include <iostream>
 
 #include "Eigen/Eigenvalues"
-#include "SymILDLSupport/ILDLFactorization.h"
-#include "SymILDLSupport/SymILDLUtils.h"
+#include "ILDL/ILDL.h"
+#include "ILDL/ILDL_utils.h"
 
-namespace SymILDLSupport {
+namespace Preconditioners {
 
 /// Constructors
 
 // Basic constructor: just set the options
-ILDLFactorization::ILDLFactorization(const SymILDLOpts &options) {
-  setOptions(options);
-}
+ILDL::ILDL(const ILDLOpts &options) { setOptions(options); }
 
 // Advanced constructor: set the options, and then call compute() function to
 // factor the passed matrix A
-ILDLFactorization::ILDLFactorization(const SparseMatrix &A,
-                                     const SymILDLOpts &options) {
+ILDL::ILDL(const SparseMatrix &A, const ILDLOpts &options) {
   setOptions(options);
   compute(A);
 }
 
-void ILDLFactorization::setOptions(const SymILDLOpts &options) {
+void ILDL::setOptions(const ILDLOpts &options) {
   /// Release any currently-held (cached) factorizations
   clear();
 
@@ -43,7 +40,7 @@ void ILDLFactorization::setOptions(const SymILDLOpts &options) {
   opts_ = options;
 }
 
-void ILDLFactorization::compute(const SparseMatrix &A) {
+void ILDL::compute(const SparseMatrix &A) {
 
   // If we already have a cached factorization stored ...
   if (initialized_) {
@@ -206,7 +203,7 @@ void ILDLFactorization::compute(const SparseMatrix &A) {
   initialized_ = true;
 }
 
-void ILDLFactorization::clear() {
+void ILDL::clear() {
 
   // If we have a cached factorization ...
   if (initialized_) {
@@ -220,7 +217,7 @@ void ILDLFactorization::clear() {
   initialized_ = false;
 }
 
-SparseMatrix ILDLFactorization::D(bool pos_def_mod) const {
+SparseMatrix ILDL::D(bool pos_def_mod) const {
 
   if (!initialized_)
     throw std::invalid_argument("Factorization has not yet been computed");
@@ -265,7 +262,7 @@ SparseMatrix ILDLFactorization::D(bool pos_def_mod) const {
   return D;
 }
 
-Vector ILDLFactorization::Dproduct(const Vector &x, bool pos_def_mod) const {
+Vector ILDL::Dproduct(const Vector &x, bool pos_def_mod) const {
   /// Error checking
   if (!initialized_)
     throw std::invalid_argument("Factorization has not yet been computed");
@@ -305,7 +302,7 @@ Vector ILDLFactorization::Dproduct(const Vector &x, bool pos_def_mod) const {
   return y;
 }
 
-Vector ILDLFactorization::Dsolve(const Vector &b, bool pos_def_mod) const {
+Vector ILDL::Dsolve(const Vector &b, bool pos_def_mod) const {
   /// Error checking
   if (!initialized_)
     throw std::invalid_argument("Factorization has not yet been computed");
@@ -347,7 +344,7 @@ Vector ILDLFactorization::Dsolve(const Vector &b, bool pos_def_mod) const {
   return x;
 }
 
-Vector ILDLFactorization::sqrtDsolve(const Vector &b) const {
+Vector ILDL::sqrtDsolve(const Vector &b) const {
   /// Error checking
   if (!initialized_)
     throw std::invalid_argument("Factorization has not yet been computed");
@@ -386,7 +383,7 @@ Vector ILDLFactorization::sqrtDsolve(const Vector &b) const {
   return x;
 }
 
-Vector ILDLFactorization::LDLTsolve(const Vector &b, bool pos_def_mode) const {
+Vector ILDL::LDLTsolve(const Vector &b, bool pos_def_mode) const {
   /// Error checking
   if (!initialized_)
     throw std::invalid_argument("Factorization has not yet been computed");
@@ -398,7 +395,7 @@ Vector ILDLFactorization::LDLTsolve(const Vector &b, bool pos_def_mode) const {
       Dsolve(L_.triangularView<Eigen::UnitLower>().solve(b), pos_def_mode));
 }
 
-Vector ILDLFactorization::sqrtDLTsolve(const Vector &b, bool transpose) const {
+Vector ILDL::sqrtDLTsolve(const Vector &b, bool transpose) const {
   if (!transpose)
     return L_.transpose().triangularView<Eigen::UnitUpper>().solve(
         sqrtDsolve(b));
@@ -406,11 +403,11 @@ Vector ILDLFactorization::sqrtDLTsolve(const Vector &b, bool transpose) const {
     return sqrtDsolve(L_.triangularView<Eigen::UnitLower>().solve(b));
 }
 
-Vector ILDLFactorization::solve(const Vector &b, bool pos_def_mod) const {
+Vector ILDL::solve(const Vector &b, bool pos_def_mod) const {
   /// If P'SASP ~ LDL', then A^-1 ~ SP (LDL')^-1 P'S
   return S_.cwiseProduct(
       P_.asPermutation() *
       LDLTsolve(Pinv_.asPermutation() * S_.cwiseProduct(b), pos_def_mod));
 }
 
-} // namespace SymILDLSupport
+} // namespace Preconditioners

@@ -6,10 +6,10 @@
 
 #pragma once
 
-#include "SymILDLSupport/SymILDLSupport_types.h"
+#include "Preconditioners/Types.h"
 #include <vector>
 
-namespace SymILDLSupport {
+namespace Preconditioners {
 /** Given a SYMMETRIC, ROW-MAJOR sparse Eigen matrix S, this function constructs
  * and returns the compressed sparse row (CSR) representation of S.  Note that
  * since S is assumed to be symmetric, only the UPPER TRIANGLE of S is
@@ -18,4 +18,4 @@ namespace SymILDLSupport {
 void toCSR(const SparseMatrix &S, std::vector<int> &row_ptr,
            std::vector<int> &col_idx, std::vector<Scalar> &val);
 
-} // namespace SymILDLSupport
+} // namespace Preconditioners

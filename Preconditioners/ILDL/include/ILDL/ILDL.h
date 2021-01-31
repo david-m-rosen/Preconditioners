@@ -24,9 +24,9 @@
 
 #include "lilc_matrix.h" // SYM-ILDL matrix type
 
-#include "SymILDLSupport_types.h"
+#include "Preconditioners/Types.h"
 
-namespace SymILDLSupport {
+namespace Preconditioners {
 
 /// Enum class that sets the type of pivoting to use during factorization
 enum class PivotType { Rook, BunchKaufman };
@@ -41,7 +41,7 @@ enum class Equilibration { Bunch, None };
 
 /// This lightweight struct contains a simplified set of configuration options
 /// for the SYM-ILDL library, as it is used in the SymILDLSupport
-struct SymILDLOpts {
+struct ILDLOpts {
 
   /** Parameter controlling the maximum fill-in for the incomplete
    * lower-triangular factor L: each column of L is guanteed to have at most
@@ -91,7 +91,7 @@ struct SymILDLOpts {
  * - L is a unit lower-triangular matrix
  * - D is a block-diagonal matrix comprised of 1x1 and 2x2 blocks
  */
-class ILDLFactorization {
+class ILDL {
 private:
   /// Data members
 
@@ -99,7 +99,7 @@ private:
   size_t dim_;
 
   /** Structure containing options for the SYM-ILDL library */
-  SymILDLOpts opts_;
+  ILDLOpts opts_;
 
   /// FACTORIZATION ELEMENTS: Elements of the factorization of PSASP = LDL'
 
@@ -135,26 +135,25 @@ private:
 public:
   /// Constructors
 
-  /** Construct an empty ILDLFactorization object */
-  ILDLFactorization(const SymILDLOpts &options = SymILDLOpts());
+  /** Construct an empty ILDL object */
+  ILDL(const ILDLOpts &options = ILDLOpts());
 
-  /** Construct an ILDLFactorization object containing a factorization
+  /** Construct an ILDL object containing a factorization
    * of the passed matrix A */
-  ILDLFactorization(const SparseMatrix &A,
-                    const SymILDLOpts &options = SymILDLOpts());
+  ILDL(const SparseMatrix &A, const ILDLOpts &options = ILDLOpts());
 
   /// Mutators
 
   /** Set the options for the incomplete LDLT factorization.  Note that calling
    * this function will release any cached factorizations currently held
-   * by the ILDLFactorization object */
-  void setOptions(const SymILDLOpts &options);
+   * by the ILDL object */
+  void setOptions(const ILDLOpts &options);
 
   /** Compute an incomplete LDL^T factorization of the matrix A. */
   void compute(const SparseMatrix &A);
 
   /** Frees any cached factorizations currently held by the
-   * ILDLFactorization object */
+   * ILDL object */
   void clear();
 
   /** Approximate the solution of Ax = b using the incomplete factorization */
@@ -217,4 +216,4 @@ public:
   Vector solve(const Vector &b, bool pos_def_mod = false) const;
 };
 
-} // namespace SymILDLSupport
+} // namespace Preconditioners
