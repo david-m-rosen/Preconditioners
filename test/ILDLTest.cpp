@@ -11,8 +11,6 @@
 using namespace Preconditioners;
 using namespace std;
 
-typedef Eigen::MatrixXd Matrix;
-
 class ILDLTest : public testing::Test {
 protected:
   /// Test configuration
