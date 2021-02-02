@@ -26,6 +26,7 @@ typedef Eigen::Matrix2d Matrix2d;
  * documentation page on "Eigen and Multithreading") */
 typedef Eigen::SparseMatrix<Scalar, Eigen::RowMajor> SparseMatrix;
 
-typedef Eigen::PermutationMatrix<Eigen::Dynamic>::IndicesType PermutationVector;
+typedef Eigen::PermutationMatrix<Eigen::Dynamic> Permutation;
+typedef Permutation::IndicesType PermutationVector;
 
 } // namespace Preconditioners

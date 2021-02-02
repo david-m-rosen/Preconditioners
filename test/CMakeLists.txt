@@ -10,3 +10,6 @@ enable_testing()
 
 add_executable(ILDLTest ILDLTest.cpp)
 target_link_libraries(ILDLTest ILDL gtest_main)
+
+add_executable(LSCholTest LSCholTest.cpp)
+target_link_libraries(LSCholTest LSChol gtest_main)
