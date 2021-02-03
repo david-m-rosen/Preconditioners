@@ -125,3 +125,9 @@ message(STATUS "Adding unit tests to build")
 add_subdirectory(test)
 endif()
 
+
+
+# Add add entry for this project into CMake's package registry, so that this project can be found by other CMake projects
+export(PACKAGE ${PROJECT_NAME})
+# Create a configuration file for this project, so that it can be imported by other CMake projects
+export(TARGETS ILDL LSChol FILE ${PROJECT_NAME}Config.cmake)
