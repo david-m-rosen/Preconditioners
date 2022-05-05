@@ -31,22 +31,9 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_BINARY_DIR}/bin CACHE PATH "The direc
 set(ENABLE_VECTORIZATION OFF CACHE BOOL "Enable vectorized instruction sets (SIMD/AVX)? [disabled by default]")
 # Enable code profiling using gperftools
 set(ENABLE_PROFILING OFF CACHE BOOL "Enable code profiling using gperftools")
-# Enable visualization module.
-set(ENABLE_VISUALIZATION OFF CACHE BOOL "Enable visualization module.")
 
 # Add the .cmake files that ship with Eigen3 to the CMake module path (useful for finding other stuff)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" CACHE STRING "The CMake module path used for this project")
-
-
-if(${ENABLE_VECTORIZATION})
-message(STATUS "Enabling SIMD/AVX instruction sets")
-add_definitions(-march=native)
-endif()
-
-if(${ENABLE_PROFILING})
-message(STATUS "Enabling code profiling using Google Performance Tools")
-set(CMAKE_EXE_LINKER_FLAGS ${CMAKE_EXE_LINKER_FLAGS} -lprofiler)
-endif()
 
 
 # PRECONDITIONERS DEPENDENCIES
@@ -125,9 +112,11 @@ message(STATUS "Adding unit tests to build")
 add_subdirectory(test)
 endif()
 
-
+# EXPORT THIS LIBRARY
 
 # Add add entry for this project into CMake's package registry, so that this project can be found by other CMake projects
 export(PACKAGE ${PROJECT_NAME})
+
 # Create a configuration file for this project, so that it can be imported by other CMake projects
 export(TARGETS ILDL LSChol FILE ${PROJECT_NAME}Config.cmake)
+
