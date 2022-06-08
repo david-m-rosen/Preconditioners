@@ -250,6 +250,21 @@ TEST_F(ILDLTest, PositiveDefiniteModification) {
                 (fabs(eigs.eigenvalues()(k) + 1.0) < eps));
 }
 
+TEST_F(ILDLTest, Inertia) {
+
+  // Set factorization options
+  Afact.setOptions(opts);
+
+  // Compute factorization
+  Afact.compute(A);
+
+  Inertia inertia = Afact.inertia();
+
+  // The test matrix A has 2 positive and 2 negative eigenvalues
+  EXPECT_EQ(inertia.first, 2);
+  EXPECT_EQ(inertia.second, 2);
+}
+
 /// Test computation of products with the diagonal matrix D
 TEST_F(ILDLTest, DProduct) {
 

@@ -117,6 +117,7 @@ private:
 
   /// We store an eigendecomposition of the block-diagonal matrix D
 
+  // The vector of eigenvalues of the block-diagonal matrix D
   Vector Lambda_;
 
   /** These vectors keep track of the starting (upper-left) index of each of the
@@ -179,6 +180,10 @@ public:
 
   /** Return the number of 2x2 blocks in the block-diagonal matrix D */
   size_t num_2x2_blocks() const { return Q_.size(); }
+
+  /** Returns the inertia (number of positive and negative eigenvalues) of the
+   * block-diagonal matrix D in the factorization */
+  Inertia inertia() const;
 
   /// Linear-algebraic operations
 

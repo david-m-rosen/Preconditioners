@@ -8,6 +8,7 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+#include <utility>
 
 namespace Preconditioners {
 
@@ -28,5 +29,9 @@ typedef Eigen::SparseMatrix<Scalar, Eigen::RowMajor> SparseMatrix;
 
 typedef Eigen::PermutationMatrix<Eigen::Dynamic> Permutation;
 typedef Permutation::IndicesType PermutationVector;
+
+/// Convenience typedef for a pair containing the number of positive and
+/// negative eigenvalues of a matrix
+typedef std::pair<size_t, size_t> Inertia;
 
 } // namespace Preconditioners

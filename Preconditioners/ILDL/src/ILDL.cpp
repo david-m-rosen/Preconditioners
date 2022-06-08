@@ -262,6 +262,16 @@ SparseMatrix ILDL::D(bool pos_def_mod) const {
   return D;
 }
 
+Inertia ILDL::inertia() const {
+  if (!initialized_)
+    throw std::invalid_argument("Factorization has not yet been computed");
+
+  // Calculate number of positive eigenvalues
+  size_t npos = (Lambda_.array() > 0.0).count();
+
+  return std::make_pair(npos, dim_ - npos);
+}
+
 Vector ILDL::Dproduct(const Vector &x, bool pos_def_mod) const {
   /// Error checking
   if (!initialized_)
