@@ -46,7 +46,7 @@ $ ./SE-Sync ../../../data/sphere2500.g2o
 
 ## References
 
-We are making this software freely available in the hope that it will be useful to others. If you use SE-Sync in your own work, please cite our [paper](https://arxiv.org/abs/2207.05257), which describes the design of the inertia-corrected symmetric indefinite preconditioner implemented in the library:
+We are making this software freely available in the hope that it will be useful to others. If you use our code in your own work, please cite our [paper](https://arxiv.org/abs/2207.05257), which describes the design of the inertia-corrected incomplete symmetric indefinite preconditioner implemented in the library:
 
 ```
 @misc{Rosen2022Accelerating,
@@ -78,6 +78,6 @@ year = {2017},
 
 The Preconditioners implementations contained herein are copyright (C) 2016-2022 by David M. Rosen, and are distributed under the terms of the GNU Lesser General Public License (LGPL) version 3 (or later).  Please see the [LICENSE](https://github.com/david-m-rosen/Preconditioners/blob/master/LICENSE) for more information.
 
-The modified version of the [sym-ildl](https://cs.stanford.edu/people/paulliu/sym-ildl/html/index.html) library redistributed with this project is released under the MIT license.  Please refer to the license distributed with that project.
+The modified version of the [sym-ildl](https://cs.stanford.edu/people/paulliu/sym-ildl/html/index.html) library redistributed with this project is released under the MIT license.  Please refer to the [license](https://github.com/david-m-rosen/Preconditioners/blob/master/SymILDL/License.md) distributed with that project.
 
 Contact: d.rosen@northeastern.edu
