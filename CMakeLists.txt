@@ -1,11 +1,11 @@
-# dmrosen 11-Jun-2020
+# dmrosen 4-July-2022
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.19)
 
 # PROJECT CONFIGURATION
 project(Preconditioners LANGUAGES C CXX VERSION 1.0.0)
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON) # We require C++ 14
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON) # We require C++ 17 or later
 
 
 # Set build type to 'RelWithDebInfo' if one was not specified by the user
@@ -46,9 +46,9 @@ endif()
 # FIND ADDITIONAL LIBRARIES
 # These next operations make use of the .cmake files shipped with Eigen3
 find_package(OpenMP REQUIRED)
-find_package(BLAS REQUIRED)
-find_package(Cholmod REQUIRED)
 find_package(SPQR REQUIRED)
+find_package(Cholmod REQUIRED)
+find_package(BLAS REQUIRED)
 
 
 # Set location of the include directory for the SYM-ILDL library
