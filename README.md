@@ -1,6 +1,6 @@
 # Preconditioners
 
-This library implements a set of useful algebraic (incomplete-factorization-based) preconditioners that can be used to accelerate the convergence of iterative linear-algebraic methods (such as the conjugate-gradient, MINRES, Lanczos, or LOBPCG methods).  This library builds upon the incomplete Crout symmetric indefinite LDL factorization provided by the [sym-ildl](https://cs.stanford.edu/people/paulliu/sym-ildl/html/index.html) library, implementing (optional) *inertia-correction* to ensure that the constructed preconditioners are *positive-definite* (which many inexact linear-algebraic methods require), as well as presenting an interface that permits easy integration with [Eigen](https://eigen.tuxfamily.org/index.php)
+This library implements a set of useful algebraic (incomplete-factorization-based) [preconditioners](https://en.wikipedia.org/wiki/Preconditioner) that can be used to accelerate the convergence of many iterative numerical linear-algebraic methods (such as the [conjugate gradient](https://en.wikipedia.org/wiki/Conjugate_gradient_method), [Lanczos](https://en.wikipedia.org/wiki/Lanczos_algorithm), or [LOBPCG](https://en.wikipedia.org/wiki/LOBPCG) methods).  It builds upon the incomplete Crout symmetric indefinite LDL' factorization provided by the [sym-ildl](https://cs.stanford.edu/people/paulliu/sym-ildl/html/index.html) library, extending its functionality to implement *inertia correction* (so that the constructed preconditioners are *positive-definite*, as required by many inexact linear-algebraic methods), as well as presenting an interface that permits easy integration with [Eigen](https://eigen.tuxfamily.org/index.php).
 
 ## Getting Started
 
@@ -76,8 +76,8 @@ year = {2017},
 
 ## Copyright and License 
 
-The Preconditioners implementations contained herein are copyright (C) 2016-2022 by David M. Rosen, and are distributed under the terms of the GNU Lesser General Public License (LGPL) version 3 (or later).  Please see the [LICENSE] for more information.
+The Preconditioners implementations contained herein are copyright (C) 2016-2022 by David M. Rosen, and are distributed under the terms of the GNU Lesser General Public License (LGPL) version 3 (or later).  Please see the [LICENSE](https://github.com/david-m-rosen/Preconditioners/blob/master/LICENSE) for more information.
 
-The modified version of the [sym-ildl](https://cs.stanford.edu/people/paulliu/sym-ildl/html/index.html) library redistributed with this project is released under the [MIT license].
+The modified version of the [sym-ildl](https://cs.stanford.edu/people/paulliu/sym-ildl/html/index.html) library redistributed with this project is released under the MIT license.  Please refer to the license distributed with that project.
 
 Contact: d.rosen@northeastern.edu
