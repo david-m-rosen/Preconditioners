@@ -115,6 +115,7 @@ endif()
 # EXPORT THIS LIBRARY
 
 # Add add entry for this project into CMake's package registry, so that this project can be found by other CMake projects
+set(CMAKE_EXPORT_PACKAGE_REGISTRY TRUE)  # This flag is required to actually export the package for CMake versions >= 3.15
 export(PACKAGE ${PROJECT_NAME})
 
 # Create a configuration file for this project, so that it can be imported by other CMake projects
