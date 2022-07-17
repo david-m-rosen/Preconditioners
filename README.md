@@ -22,7 +22,6 @@ $ git clone https://github.com/david-m-rosen/Preconditioners Preconditioners
 
 ```
 $ cd Preconditioners && mkdir build
-
 ```
 
 *Step 4:*  Configure build and generate Makefiles
