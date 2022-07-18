@@ -57,7 +57,7 @@ and the following [paper](https://dl.acm.org/doi/abs/10.1145/3054948) of Greif e
 @article{Greif2017SymILDL,
 title = {{SYM-ILDL}: Incomplete {$LDL\transpose$} Factorization of Symmetric Indefinite and Skew-Symmetric Matrices},
 author = {Greif, C. and He, S. and Liu, P.},
-journal = toms,
+journal = {{ACM} Trans. Math. Softw.},
 volume = {44},
 number = {1},
 month = apr,

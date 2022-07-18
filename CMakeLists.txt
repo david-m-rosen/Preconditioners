@@ -47,8 +47,8 @@ endif()
 # These next operations make use of the .cmake files shipped with Eigen3
 find_package(OpenMP REQUIRED)
 find_package(SPQR REQUIRED)
-find_package(Cholmod REQUIRED)
-find_package(BLAS REQUIRED)
+#find_package(CHOLMOD REQUIRED)
+#find_package(BLAS REQUIRED)
 
 
 # Set location of the include directory for the SYM-ILDL library
