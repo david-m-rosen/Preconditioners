@@ -47,9 +47,6 @@ endif()
 # These next operations make use of the .cmake files shipped with Eigen3
 find_package(OpenMP REQUIRED)
 find_package(SPQR REQUIRED)
-#find_package(CHOLMOD REQUIRED)
-#find_package(BLAS REQUIRED)
-
 
 # Set location of the include directory for the SYM-ILDL library
 set(SymILDL_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/SymILDL/SymILDL)
@@ -98,11 +95,11 @@ ${LSChol_SOURCE_DIR}/LSChol.cpp
 )
 
 # Eigen 3 is referenced by the header files of the LSChol library, hence must be PUBLICLY included (i.e. clients using the SYMILDLSupport headers must also include these headers)
-set(LSChol_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR} ${EIGEN3_INCLUDE_DIR} ${SPQR_INCLUDES} ${CHOLMOD_INCLUDES} ${LSChol_INCLUDE_DIR} CACHE INTERNAL "")
+set(LSChol_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR} ${EIGEN3_INCLUDE_DIR} ${SPQR_INCLUDES} ${LSChol_INCLUDE_DIR} CACHE INTERNAL "")
 
 add_library(LSChol SHARED ${LSChol_HDRS} ${LSChol_SRCS})
 target_include_directories(LSChol PUBLIC ${LSChol_INCLUDES})
-target_link_libraries(LSChol ${BLAS_LIBRARIES} ${CHOLMOD_LIBRARIES} ${SPQR_LIBRARIES} ${M} ${LAPACK})
+target_link_libraries(LSChol ${BLAS_LIBRARIES} ${SPQR_LIBRARIES} ${M} ${LAPACK})
 set_target_properties(LSChol PROPERTIES COMPILE_FLAGS ${OpenMP_CXX_FLAGS})
 set_target_properties(LSChol PROPERTIES LINK_FLAGS "-fopenmp")
 
