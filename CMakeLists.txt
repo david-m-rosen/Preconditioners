@@ -1,6 +1,6 @@
 # dmrosen 4-July-2022
 
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.1)
 
 # PROJECT CONFIGURATION
 project(Preconditioners LANGUAGES C CXX VERSION 1.0.0)
